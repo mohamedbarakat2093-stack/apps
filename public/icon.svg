@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e1b4b"/>
+      <stop offset="50%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="16" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="110" fill="url(#bg)"/>
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="none" stroke="#3b82f6" stroke-width="4" stroke-opacity="0.3"/>
+  
+  <!-- TV Monitor Body -->
+  <rect x="80" y="140" width="352" height="230" rx="32" fill="#1e293b" stroke="url(#accent)" stroke-width="8" filter="url(#glow)"/>
+  
+  <!-- TV Antenna -->
+  <path d="M200 80 L256 140 L312 80" fill="none" stroke="#60a5fa" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Play & Radio Waves Inside Screen -->
+  <polygon points="230,200 230,310 320,255" fill="#38bdf8"/>
+  <circle cx="360" cy="255" r="8" fill="#34d399"/>
+  <path d="M375 235 A 30 30 0 0 1 375 275" fill="none" stroke="#34d399" stroke-width="6" stroke-linecap="round"/>
+  <path d="M390 220 A 50 50 0 0 1 390 290" fill="none" stroke="#34d399" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- TV Stand -->
+  <path d="M210 370 L190 410 L322 410 L302 370" fill="#334155"/>
+  <line x1="170" y1="410" x2="342" y2="410" stroke="#64748b" stroke-width="8" stroke-linecap="round"/>
+  
+  <!-- Text AudioCast -->
+  <text x="256" y="460" text-anchor="middle" fill="#93c5fd" font-family="system-ui, sans-serif" font-size="32" font-weight="900" letter-spacing="2">AUDIOCAST</text>
+</svg>

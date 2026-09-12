@@ -1,0 +1,6 @@
+{
+  "name": "AudioCast",
+  "description": "مشغل قنوات وبثوث M3U مع دعم التشغيل في الخلفية، استئناف التشغيل التلقائي، ومراقبة الاتصال",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
