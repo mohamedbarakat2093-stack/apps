@@ -46,11 +46,8 @@ export const HiddenScreenOverlay: React.FC<HiddenScreenOverlayProps> = ({
   return (
     <div
       id="hidden-task-screen"
-      className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center animate-fadeIn"
+      className="fixed inset-0 z-50 bg-slate-950/98 flex flex-col items-center justify-center p-6 text-center"
     >
-      {/* Background ambient lighting */}
-      <div className="absolute inset-0 bg-radial from-slate-900 to-slate-950 pointer-events-none" />
-
       <div className="relative z-10 max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6">
         {/* TV / Remote indicator */}
         <div className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-400">
@@ -61,9 +58,6 @@ export const HiddenScreenOverlay: React.FC<HiddenScreenOverlayProps> = ({
         {/* Status circle */}
         <div className="relative mx-auto w-20 h-20 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center shadow-lg">
           <Radio className={`w-10 h-10 ${isPlaying ? 'text-emerald-400' : 'text-slate-500'}`} />
-          {isPlaying && (
-            <span className="absolute inset-0 rounded-full border-2 border-emerald-400/50 animate-ping" />
-          )}
         </div>
 
         <div className="space-y-1">

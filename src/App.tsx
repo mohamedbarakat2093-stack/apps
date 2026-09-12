@@ -334,7 +334,7 @@ export default function App() {
       {toastMessage && (
         <div
           id="app-toast-alert"
-          className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-sm font-bold border transition-all animate-bounce ${
+          className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-sm font-bold border transition-all ${
             toastMessage.type === 'error'
               ? 'bg-rose-950 border-rose-500 text-rose-100'
               : toastMessage.type === 'success'

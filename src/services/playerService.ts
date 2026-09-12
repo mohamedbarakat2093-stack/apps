@@ -291,9 +291,12 @@ class PlayerEngine {
 
       if (isHls && Hls.isSupported()) {
         const hls = new Hls({
-          enableWorker: true,
-          lowLatencyMode: true,
-          backBufferLength: 30,
+          enableWorker: false, // Prevents thread exhaustion & freeze on low-end Android TV SoCs
+          lowLatencyMode: false,
+          maxBufferLength: 10, // Keep memory tiny (10 seconds buffer instead of default 60s)
+          maxMaxBufferLength: 15,
+          maxBufferSize: 5 * 1000 * 1000, // Max 5MB buffer in RAM
+          backBufferLength: 5,
         });
         this.hls = hls;
 

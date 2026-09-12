@@ -72,7 +72,7 @@ export const ForegroundNotification: React.FC<ForegroundNotificationProps> = ({
             )}
 
             {isPlaying && (
-              <div className="absolute bottom-1 right-1 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <div className="absolute bottom-1 right-1 w-2 h-2 rounded-full bg-emerald-400" />
             )}
           </div>
 
@@ -83,10 +83,8 @@ export const ForegroundNotification: React.FC<ForegroundNotificationProps> = ({
                 {channel.name}
               </h3>
               {isPlaying && (
-                <span className="flex gap-0.5 items-end h-3">
-                  <span className="w-1 bg-emerald-400 h-2 animate-bounce" />
-                  <span className="w-1 bg-emerald-400 h-3 animate-pulse" />
-                  <span className="w-1 bg-emerald-400 h-1.5 animate-bounce delay-75" />
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  بث نشط
                 </span>
               )}
             </div>
