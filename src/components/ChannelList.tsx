@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Volume2, Search, Radio, Tv, Trash2, ChevronLeft, ChevronRight, Play } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Volume2, Search, Radio, Tv, Trash2, ChevronLeft, ChevronRight, Hash } from 'lucide-react';
 import { Channel, PlayerStatus } from '../types';
 
 interface ChannelListProps {
@@ -25,6 +25,12 @@ export const ChannelList: React.FC<ChannelListProps> = ({
   const [selectedGroup, setSelectedGroup] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+  // حالة إدخال أرقام الريموت كنترول للوصول السريع
+  const [enteredDigits, setEnteredDigits] = useState<string>('');
+  const [channelJumpToast, setChannelJumpToast] = useState<{ number: number; name?: string; notFound?: boolean } | null>(null);
+  const digitTimeoutRef = useRef<any>(null);
+  const toastTimeoutRef = useRef<any>(null);
 
   // Extract unique groups
   const groups = useMemo(() => {
@@ -64,6 +70,93 @@ export const ChannelList: React.FC<ChannelListProps> = ({
     return filteredChannels.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredChannels, safeCurrentPage]);
 
+  // استماع لأرقام الريموت كنترول (0-9) واللوحة الرقمية (Numpad) للوصول المباشر للقناة
+  useEffect(() => {
+    if (channels.length === 0) return;
+
+    const handleRemoteNumberPress = (e: KeyboardEvent) => {
+      // تجنب اعتراض الأرقام إذا كان المستخدم يكتب في حقل البحث
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+
+      let digit: string | null = null;
+
+      // فحص أزرار الأرقام العادية و Numpad ومفاتيح ريموت الأندرويد (KEYCODE_0 إلى KEYCODE_9 هي 7 إلى 16)
+      if (e.key >= '0' && e.key <= '9') {
+        digit = e.key;
+      } else if (e.code && e.code.startsWith('Digit')) {
+        digit = e.code.replace('Digit', '');
+      } else if (e.code && e.code.startsWith('Numpad') && e.code.length === 7) {
+        digit = e.code.replace('Numpad', '');
+      } else if (e.keyCode >= 48 && e.keyCode <= 57) {
+        digit = String(e.keyCode - 48);
+      } else if (e.keyCode >= 96 && e.keyCode <= 105) {
+        digit = String(e.keyCode - 96);
+      } else if (e.keyCode >= 7 && e.keyCode <= 16) {
+        // Android TV DVB Remote specific keycodes (KEYCODE_0=7, KEYCODE_1=8, ..., KEYCODE_9=16)
+        digit = String(e.keyCode - 7);
+      }
+
+      if (digit !== null) {
+        e.preventDefault();
+
+        // تجميع الأرقام المكتوبة وراء بعض (مثلاً ضغط 1 ثم 2 ليصبح 12)
+        setEnteredDigits((prev) => {
+          const newNumberStr = prev + digit;
+
+          // إلغاء أي مؤقت سابق
+          if (digitTimeoutRef.current) clearTimeout(digitTimeoutRef.current);
+
+          // مؤقت لتنفيذ الانتقال للقناة بعد ثانية واحدة من آخر ضغطة
+          digitTimeoutRef.current = setTimeout(() => {
+            const channelNumber = parseInt(newNumberStr, 10);
+            if (!isNaN(channelNumber) && channelNumber > 0) {
+              const targetIndex = channelNumber - 1; // 1-based index
+              if (targetIndex >= 0 && targetIndex < channels.length) {
+                const targetChannel = channels[targetIndex];
+                // الانتقال للصفحة التي تحتوي هذه القناة إذا لزم الأمر
+                const targetPage = Math.floor(targetIndex / ITEMS_PER_PAGE) + 1;
+                setCurrentPage(targetPage);
+                // تشغيل القناة مباشرة
+                onSelectChannel(targetChannel);
+
+                // إشعار مرئي بالرقم واسم القناة على الشاشة
+                setChannelJumpToast({ number: channelNumber, name: targetChannel.name });
+
+                // محاولة نقل الفوكس للعنصر في الشاشة
+                setTimeout(() => {
+                  const elem = document.getElementById(`channel-item-${targetIndex}`);
+                  elem?.focus();
+                  elem?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 100);
+              } else {
+                // رقم القناة غير موجود
+                setChannelJumpToast({ number: channelNumber, notFound: true });
+              }
+            }
+            setEnteredDigits('');
+
+            if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+            toastTimeoutRef.current = setTimeout(() => {
+              setChannelJumpToast(null);
+            }, 3000);
+          }, 1000);
+
+          return newNumberStr;
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleRemoteNumberPress);
+    return () => {
+      window.removeEventListener('keydown', handleRemoteNumberPress);
+      if (digitTimeoutRef.current) clearTimeout(digitTimeoutRef.current);
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    };
+  }, [channels, onSelectChannel]);
+
   const handleSearchChange = (val: string) => {
     setSearchQuery(val);
     setCurrentPage(1);
@@ -94,8 +187,50 @@ export const ChannelList: React.FC<ChannelListProps> = ({
   }
 
   return (
-    <div id="channel-list-section" className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-4">
-      {/* Header with Search, Group Selector & Clear All button */}
+    <div id="channel-list-section" className="relative bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-4">
+      {/* مؤشر إدخال رقم القناة بالريموت (OSD Channel Number Box) */}
+      {enteredDigits && (
+        <div
+          id="remote-channel-input-osd"
+          className="fixed top-20 right-6 sm:right-12 z-50 bg-slate-950/95 border-2 border-emerald-400 text-white px-6 py-4 rounded-3xl shadow-2xl shadow-black/80 flex items-center gap-4 animate-in fade-in zoom-in-95 duration-150"
+        >
+          <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400">
+            <Hash className="w-6 h-6" />
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-slate-400 font-bold">الانتقال للقناة بالريموت:</p>
+            <div className="text-4xl font-black font-mono tracking-widest text-emerald-300 drop-shadow-md">
+              {enteredDigits}
+              <span className="animate-pulse">_</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* تنبيه نتيجة الانتقال للقناة */}
+      {channelJumpToast && (
+        <div
+          id="remote-channel-toast"
+          className={`fixed top-20 right-6 sm:right-12 z-50 px-5 py-3 rounded-2xl shadow-2xl border flex items-center gap-3 text-sm font-bold animate-in fade-in zoom-in-95 duration-200 ${
+            channelJumpToast.notFound
+              ? 'bg-rose-950/95 border-rose-500 text-rose-200 shadow-rose-950/50'
+              : 'bg-emerald-950/95 border-emerald-400 text-emerald-200 shadow-emerald-950/50'
+          }`}
+        >
+          {channelJumpToast.notFound ? (
+            <span>القناة رقم {channelJumpToast.number} غير موجودة بالقائمة!</span>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+              <span>
+                قناة رقم {channelJumpToast.number}: <strong className="text-white">{channelJumpToast.name}</strong>
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Header with Search, Group Selector, Clear All & Remote Numbers Hint */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-800">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2">
@@ -108,6 +243,14 @@ export const ChannelList: React.FC<ChannelListProps> = ({
                 المطابقة: {filteredChannels.length}
               </span>
             )}
+          </div>
+
+          {/* تلميح دعم أرقام الريموت كنترول */}
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-800/70 border border-slate-700/80 text-[11px] text-slate-300 font-medium">
+            <span className="w-4 h-4 rounded-md bg-blue-600/30 text-blue-400 font-mono font-bold flex items-center justify-center text-[10px] border border-blue-500/30">
+              1-9
+            </span>
+            <span>أزرار أرقام الريموت تفتح القناة مباشرة</span>
           </div>
 
           {/* زر مسح الكل */}
@@ -188,6 +331,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
       >
         {paginatedChannels.map((channel, idx) => {
           const globalIdx = (safeCurrentPage - 1) * ITEMS_PER_PAGE + idx;
+          const channelNumber = globalIdx + 1;
           const isCurrentActive = activeChannel?.id === channel.id || activeChannel?.url === channel.url;
           const isPlaying = isCurrentActive && status === 'playing';
           const isLoading = isCurrentActive && (status === 'loading' || status === 'reconnecting');
@@ -210,7 +354,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
               }`}
             >
               <div className="flex items-center gap-3 min-w-0 flex-1">
-                {/* Play / Active Icon */}
+                {/* Play / Active Icon with Channel Number */}
                 <div
                   className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all ${
                     isCurrentActive
@@ -229,7 +373,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
                       <Volume2 className="w-4 h-4" />
                     )
                   ) : (
-                    <span className="text-xs font-mono font-bold">{globalIdx + 1}</span>
+                    <span className="text-xs font-mono font-bold">{channelNumber}</span>
                   )}
                 </div>
 
@@ -272,6 +416,11 @@ export const ChannelList: React.FC<ChannelListProps> = ({
                   )}
                 </div>
               </div>
+
+              {/* رقم القناة في الزاوية للريموت */}
+              <span className="text-[11px] font-mono text-slate-500 group-hover:text-slate-300 group-focus:text-blue-300 pl-1 font-bold">
+                #{channelNumber}
+              </span>
 
               {/* زر حذف القناة */}
               <button
