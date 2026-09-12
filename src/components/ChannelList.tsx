@@ -70,12 +70,28 @@ export const ChannelList: React.FC<ChannelListProps> = ({
     return filteredChannels.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredChannels, safeCurrentPage]);
 
-  // استماع لأرقام الريموت كنترول (0-9) واللوحة الرقمية (Numpad) للوصول المباشر للقناة
+  // استماع لأرقام الريموت كنترول للوصول المباشر للقناة
+  // ملاحظة مهمة: تم استبعاد keycode 13 و 23 و 66 (مفاتيح OK / Enter / Dpad Center)
+  // والاعتماد فقط على المفاتيح التي تمثل أرقام حقيقية
   useEffect(() => {
     if (channels.length === 0) return;
 
     const handleRemoteNumberPress = (e: KeyboardEvent) => {
-      // تجنب اعتراض الأرقام إذا كان المستخدم يكتب في حقل البحث
+      // تجاهل أزرار التأكيد أو الاختيار في الريموت (OK / Enter / Dpad Center)
+      if (
+        e.key === 'Enter' ||
+        e.key === 'Ok' ||
+        e.key === 'Select' ||
+        e.code === 'Enter' ||
+        e.code === 'NumpadEnter' ||
+        e.keyCode === 13 ||
+        e.keyCode === 23 || // Android KEYCODE_DPAD_CENTER
+        e.keyCode === 66    // Android KEYCODE_ENTER
+      ) {
+        return;
+      }
+
+      // تجنب اعتراض الأرقام إذا كان المستخدم يكتب في حقل إدخال
       const target = e.target as HTMLElement;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
         return;
@@ -83,56 +99,50 @@ export const ChannelList: React.FC<ChannelListProps> = ({
 
       let digit: string | null = null;
 
-      // فحص أزرار الأرقام العادية و Numpad ومفاتيح ريموت الأندرويد (KEYCODE_0 إلى KEYCODE_9 هي 7 إلى 16)
-      if (e.key >= '0' && e.key <= '9') {
+      // 1. فحص حرف e.key
+      if (/^[0-9]$/.test(e.key)) {
         digit = e.key;
-      } else if (e.code && e.code.startsWith('Digit')) {
+      } else if (e.code && /^Digit[0-9]$/.test(e.code)) {
         digit = e.code.replace('Digit', '');
-      } else if (e.code && e.code.startsWith('Numpad') && e.code.length === 7) {
+      } else if (e.code && /^Numpad[0-9]$/.test(e.code)) {
         digit = e.code.replace('Numpad', '');
       } else if (e.keyCode >= 48 && e.keyCode <= 57) {
+        // مفاتيح 0-9 القياسية
         digit = String(e.keyCode - 48);
       } else if (e.keyCode >= 96 && e.keyCode <= 105) {
+        // مفاتيح Numpad 0-9
         digit = String(e.keyCode - 96);
-      } else if (e.keyCode >= 7 && e.keyCode <= 16) {
-        // Android TV DVB Remote specific keycodes (KEYCODE_0=7, KEYCODE_1=8, ..., KEYCODE_9=16)
-        digit = String(e.keyCode - 7);
       }
 
       if (digit !== null) {
-        e.preventDefault();
-
         // تجميع الأرقام المكتوبة وراء بعض (مثلاً ضغط 1 ثم 2 ليصبح 12)
         setEnteredDigits((prev) => {
           const newNumberStr = prev + digit;
 
-          // إلغاء أي مؤقت سابق
           if (digitTimeoutRef.current) clearTimeout(digitTimeoutRef.current);
 
-          // مؤقت لتنفيذ الانتقال للقناة بعد ثانية واحدة من آخر ضغطة
           digitTimeoutRef.current = setTimeout(() => {
             const channelNumber = parseInt(newNumberStr, 10);
             if (!isNaN(channelNumber) && channelNumber > 0) {
               const targetIndex = channelNumber - 1; // 1-based index
               if (targetIndex >= 0 && targetIndex < channels.length) {
                 const targetChannel = channels[targetIndex];
-                // الانتقال للصفحة التي تحتوي هذه القناة إذا لزم الأمر
+                // الانتقال للصفحة التي تحتوي هذه القناة
                 const targetPage = Math.floor(targetIndex / ITEMS_PER_PAGE) + 1;
                 setCurrentPage(targetPage);
-                // تشغيل القناة مباشرة
+                // تشغيل القناة مباشرة لتجربتها والتأكد منها فورياً
                 onSelectChannel(targetChannel);
 
                 // إشعار مرئي بالرقم واسم القناة على الشاشة
                 setChannelJumpToast({ number: channelNumber, name: targetChannel.name });
 
-                // محاولة نقل الفوكس للعنصر في الشاشة
+                // نقل الفوكس للعنصر في الشاشة
                 setTimeout(() => {
                   const elem = document.getElementById(`channel-item-${targetIndex}`);
                   elem?.focus();
                   elem?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }, 100);
               } else {
-                // رقم القناة غير موجود
                 setChannelJumpToast({ number: channelNumber, notFound: true });
               }
             }
@@ -179,7 +189,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
         <div className="space-y-1 max-w-md">
           <h3 className="text-lg font-bold text-slate-300">لا توجد قنوات محمّلة حالياً</h3>
           <p className="text-sm text-slate-400">
-            اضغط على زر <span className="text-blue-400 font-semibold">"إضافة ملف M3U"</span> في الأعلى لاختيار ملف وإضافته للقائمة.
+            اضغط على زر <span className="text-blue-400 font-semibold">"إضافة ملف (M3U / CFG / TXT)"</span> أو زر <span className="text-emerald-400 font-semibold">"إضافة قناة صوتية"</span> لإضافة قنوات والتأكد منها فورياً.
           </p>
         </div>
       </div>
@@ -223,7 +233,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
               <span>
-                قناة رقم {channelJumpToast.number}: <strong className="text-white">{channelJumpToast.name}</strong>
+                قناة رقم {channelJumpToast.number}: <strong className="text-white">{channelJumpToast.name}</strong> (جاري التشغيل)
               </span>
             </div>
           )}
@@ -250,7 +260,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
             <span className="w-4 h-4 rounded-md bg-blue-600/30 text-blue-400 font-mono font-bold flex items-center justify-center text-[10px] border border-blue-500/30">
               1-9
             </span>
-            <span>أزرار أرقام الريموت تفتح القناة مباشرة</span>
+            <span>أرقام الريموت تفتح القناة مباشرة</span>
           </div>
 
           {/* زر مسح الكل */}
@@ -343,7 +353,8 @@ export const ChannelList: React.FC<ChannelListProps> = ({
               tabIndex={0}
               onClick={() => onSelectChannel(channel)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.keyCode === 13) {
+                if (e.key === 'Enter' || e.keyCode === 13 || e.keyCode === 23 || e.keyCode === 66) {
+                  e.preventDefault();
                   onSelectChannel(channel);
                 }
               }}

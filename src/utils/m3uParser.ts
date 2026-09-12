@@ -4,40 +4,103 @@ export interface ParseResult {
   success: boolean;
   channels: Channel[];
   error?: string;
+  format?: 'm3u' | 'cfg' | 'txt' | 'urls';
 }
 
-export function parseM3U(content: string): ParseResult {
+/**
+ * Clean and strip UTF-8 BOM, carriage returns, and hidden null bytes
+ */
+function cleanRawContent(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/^\uFEFF/, '') // Remove UTF-8 Byte Order Mark
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n');
+}
+
+/**
+ * Comprehensive parser supporting:
+ * 1. Standard M3U / M3U8 (#EXTM3U, #EXTINF)
+ * 2. Non-standard M3U (files missing #EXTM3U header)
+ * 3. CFG / INI formats (e.g. channel=name,url or [channel] or channel = "name", "url" or Name: URL)
+ * 4. Plain TXT formats:
+ *    - name, url
+ *    - name; url
+ *    - name | url
+ *    - name = url
+ *    - Raw list of direct streaming URLs (one per line)
+ */
+export function parsePlaylistFile(content: string, fileName = ''): ParseResult {
   if (!content || typeof content !== 'string') {
-    return { success: false, channels: [], error: 'الملف مش سليم' };
+    return { success: false, channels: [], error: 'الملف غير صالح أو فارغ' };
   }
 
-  const cleanContent = content.trim();
-  if (cleanContent.length === 0) {
-    return { success: false, channels: [], error: 'الملف مش سليم' };
+  const clean = cleanRawContent(content).trim();
+  if (clean.length === 0) {
+    return { success: false, channels: [], error: 'الملف فارغ تماماً' };
   }
 
-  const lines = cleanContent.split(/\r?\n/);
+  const lines = clean.split('\n');
   const channels: Channel[] = [];
+  const lowerFileName = fileName.toLowerCase();
 
+  // Check if standard M3U
+  const hasExtInf = clean.includes('#EXTINF');
+  const hasExtM3u = clean.includes('#EXTM3U');
+
+  if (hasExtInf || hasExtM3u || lowerFileName.endsWith('.m3u') || lowerFileName.endsWith('.m3u8')) {
+    const m3uChannels = parseM3ULines(lines);
+    if (m3uChannels.length > 0) {
+      return { success: true, channels: m3uChannels, format: 'm3u' };
+    }
+  }
+
+  // Check CFG / INI format (e.g. name = url or channel=...)
+  if (lowerFileName.endsWith('.cfg') || lowerFileName.endsWith('.ini') || clean.includes('=')) {
+    const cfgChannels = parseCfgLines(lines);
+    if (cfgChannels.length > 0) {
+      return { success: true, channels: cfgChannels, format: 'cfg' };
+    }
+  }
+
+  // Check delimiter-separated TXT (comma, semicolon, tab, pipe)
+  const delimitedChannels = parseDelimitedLines(lines);
+  if (delimitedChannels.length > 0) {
+    return { success: true, channels: delimitedChannels, format: 'txt' };
+  }
+
+  // Fallback: extract any valid URLs found in file
+  const urlChannels = parseRawUrls(lines);
+  if (urlChannels.length > 0) {
+    return { success: true, channels: urlChannels, format: 'urls' };
+  }
+
+  return {
+    success: false,
+    channels: [],
+    error: 'لم نتمكن من العثور على روابط قنوات صالحة داخل الملف',
+  };
+}
+
+/**
+ * Standard & Loose M3U Parser
+ */
+function parseM3ULines(lines: string[]): Channel[] {
+  const channels: Channel[] = [];
   let currentName = '';
   let currentLogo: string | undefined = undefined;
   let currentGroup: string | undefined = undefined;
-  let hasExtM3uHeader = false;
 
   for (let i = 0; i < lines.length; i++) {
-    const rawLine = lines[i];
-    const line = rawLine.trim();
-
+    const line = lines[i].trim();
     if (!line) continue;
 
     if (line.startsWith('#EXTM3U')) {
-      hasExtM3uHeader = true;
       continue;
     }
 
     if (line.startsWith('#EXTINF:')) {
-      // Parse EXTINF attributes
-      // e.g., #EXTINF:-1 tvg-id="1" tvg-name="Quran Radio" tvg-logo="https://..." group-title="Quran",إذاعة القرآن الكريم
+      // e.g., #EXTINF:-1 tvg-logo="https://..." group-title="News",Al Jazeera Audio
       const commaIndex = line.lastIndexOf(',');
       if (commaIndex !== -1) {
         currentName = line.substring(commaIndex + 1).trim();
@@ -45,67 +108,198 @@ export function parseM3U(content: string): ParseResult {
         currentName = 'قناة بدون اسم';
       }
 
-      // Extract tvg-logo
-      const logoMatch = line.match(/tvg-logo="([^"]+)"/i);
+      // tvg-logo
+      const logoMatch = line.match(/tvg-logo="([^"]+)"/i) || line.match(/logo="([^"]+)"/i);
       currentLogo = logoMatch ? logoMatch[1] : undefined;
 
-      // Extract group-title
-      const groupMatch = line.match(/group-title="([^"]+)"/i);
+      // group-title
+      const groupMatch = line.match(/group-title="([^"]+)"/i) || line.match(/group="([^"]+)"/i);
       currentGroup = groupMatch ? groupMatch[1] : undefined;
 
-      // Extract tvg-name fallback
-      if (!currentName) {
+      // tvg-name fallback
+      if (!currentName || currentName === 'قناة بدون اسم') {
         const nameMatch = line.match(/tvg-name="([^"]+)"/i);
         if (nameMatch) {
           currentName = nameMatch[1];
         }
       }
     } else if (!line.startsWith('#')) {
-      // It's a stream URL
-      if (line.startsWith('http://') || line.startsWith('https://') || line.startsWith('rtmp://') || line.startsWith('mmsh://')) {
+      // Possible stream URL
+      if (isValidStreamUrl(line)) {
         const name = currentName || `قناة ${channels.length + 1}`;
         channels.push({
-          id: `ch_${channels.length + 1}_${Math.random().toString(36).substring(2, 7)}`,
+          id: `ch_${Date.now()}_${channels.length + 1}_${Math.random().toString(36).substring(2, 6)}`,
           name,
           url: line,
           logo: currentLogo,
           group: currentGroup,
         });
       }
-      // Reset current values for next channel
       currentName = '';
       currentLogo = undefined;
       currentGroup = undefined;
     }
   }
 
-  // If no channels were parsed, or file didn't have valid channels
-  if (channels.length === 0) {
-    return {
-      success: false,
-      channels: [],
-      error: 'الملف مش سليم',
-    };
-  }
-
-  return {
-    success: true,
-    channels,
-  };
+  return channels;
 }
 
-// Built-in sample M3U file (Quran radios, public news & audio streams that are reliably online)
+/**
+ * CFG / INI Parser
+ * Supports:
+ * ChannelName = http://stream.url
+ * channel = "ChannelName", "http://stream.url"
+ * [ChannelName] url = http://...
+ */
+function parseCfgLines(lines: string[]): Channel[] {
+  const channels: Channel[] = [];
+  let currentSection = '';
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line || line.startsWith(';') || line.startsWith('#') || line.startsWith('//')) {
+      continue;
+    }
+
+    // Section header [Radio News]
+    if (line.startsWith('[') && line.endsWith(']')) {
+      currentSection = line.slice(1, -1).trim();
+      continue;
+    }
+
+    // Key=Value
+    const eqIdx = line.indexOf('=');
+    if (eqIdx !== -1) {
+      const key = line.substring(0, eqIdx).trim();
+      const value = line.substring(eqIdx + 1).trim().replace(/^["']|["']$/g, '');
+
+      // Check if value is a URL
+      if (isValidStreamUrl(value)) {
+        const name = currentSection || key || `قناة ${channels.length + 1}`;
+        channels.push({
+          id: `cfg_${Date.now()}_${channels.length + 1}_${Math.random().toString(36).substring(2, 6)}`,
+          name,
+          url: value,
+          group: currentSection || 'CFG',
+        });
+        currentSection = '';
+        continue;
+      }
+
+      // Check if value contains "name", "url"
+      if (value.includes(',') || value.includes('|')) {
+        const parts = value.split(/[,|]/).map((s) => s.trim().replace(/^["']|["']$/g, ''));
+        const foundUrl = parts.find(isValidStreamUrl);
+        const foundName = parts.find((p) => p !== foundUrl);
+        if (foundUrl) {
+          channels.push({
+            id: `cfg_${Date.now()}_${channels.length + 1}_${Math.random().toString(36).substring(2, 6)}`,
+            name: foundName || key || `قناة ${channels.length + 1}`,
+            url: foundUrl,
+            group: 'CFG',
+          });
+          continue;
+        }
+      }
+    }
+  }
+
+  return channels;
+}
+
+/**
+ * Delimited TXT Parser (Comma, Pipe, Semicolon, Tab)
+ * Format: Name, URL  OR  URL, Name
+ */
+function parseDelimitedLines(lines: string[]): Channel[] {
+  const channels: Channel[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line || line.startsWith('#') || line.startsWith('//')) continue;
+
+    // Check common delimiters: comma, pipe, semicolon, tab
+    let delimiter: string | null = null;
+    if (line.includes('|')) delimiter = '|';
+    else if (line.includes(',')) delimiter = ',';
+    else if (line.includes(';')) delimiter = ';';
+    else if (line.includes('\t')) delimiter = '\t';
+
+    if (delimiter) {
+      const parts = line.split(delimiter).map((s) => s.trim().replace(/^["']|["']$/g, ''));
+      const urlIndex = parts.findIndex(isValidStreamUrl);
+
+      if (urlIndex !== -1) {
+        const url = parts[urlIndex];
+        const otherParts = parts.filter((_, idx) => idx !== urlIndex).filter(Boolean);
+        const name = otherParts[0] || `قناة ${channels.length + 1}`;
+        const group = otherParts[1] || undefined;
+
+        channels.push({
+          id: `txt_${Date.now()}_${channels.length + 1}_${Math.random().toString(36).substring(2, 6)}`,
+          name,
+          url,
+          group,
+        });
+      }
+    }
+  }
+
+  return channels;
+}
+
+/**
+ * Raw URLs fallback
+ */
+function parseRawUrls(lines: string[]): Channel[] {
+  const channels: Channel[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (isValidStreamUrl(line)) {
+      channels.push({
+        id: `raw_${Date.now()}_${channels.length + 1}_${Math.random().toString(36).substring(2, 6)}`,
+        name: `قناة صوتية ${channels.length + 1}`,
+        url: line,
+      });
+    }
+  }
+
+  return channels;
+}
+
+/**
+ * Validate stream URL
+ */
+export function isValidStreamUrl(url: string): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const clean = url.trim().toLowerCase();
+  return (
+    clean.startsWith('http://') ||
+    clean.startsWith('https://') ||
+    clean.startsWith('rtmp://') ||
+    clean.startsWith('mmsh://') ||
+    clean.startsWith('rtsp://')
+  );
+}
+
+// Backward compatibility helper
+export function parseM3U(content: string, fileName = ''): ParseResult {
+  return parsePlaylistFile(content, fileName);
+}
+
+// Built-in sample channels (verified live audio streams)
 export const DEFAULT_SAMPLE_M3U = `#EXTM3U
-#EXTINF:-1 tvg-logo="https://raw.githubusercontent.com/freetv-app/logos/master/images/quran-karim-cairo.png" group-title="إذاعات إسلامية",إذاعة القرآن الكريم - القاهرة
-https://n02.radiojar.com/8s5u82pmwtzuv?rj-ttl=5&rj-tok=AAABmQ...
-#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/2/2f/BBC_Arabic_logo.svg" group-title="أخبار",بي بي سي عربي (BBC Arabic Audio)
-https://stream.live.vc.bbcmedia.co.uk/bbc_arabic_radio
-#EXTINF:-1 tvg-logo="https://aljazeera.net/favicon.ico" group-title="أخبار",الجزيرة صوتية مباشر (Al Jazeera Audio)
-https://live-audio-stream.aljazeera.net/audio/aljazeera
-#EXTINF:-1 tvg-logo="https://raw.githubusercontent.com/freetv-app/logos/master/images/monte-carlo.png" group-title="إذاعات عامة",مونت كارلو الدولية (MCD)
-https://montecarlodoualiya128k.streamakaci.com/mcd.mp3
-#EXTINF:-1 tvg-logo="https://raw.githubusercontent.com/freetv-app/logos/master/images/skynewsarabia.png" group-title="أخبار",سكاي نيوز عربية (Sky News Arabia)
-https://stream.skynewsarabia.com/hls/audio/64k/prog_index.m3u8
-#EXTINF:-1 group-title="إذاعات إسلامية",إذاعة القرآن الكريم - مكة المكرمة
-https://qurango.net/radio/tarteel
+#EXTINF:-1 tvg-logo="https://www.9090.fm/images/logo.png" group-title="إذاعات مصر",الراديو 9090 FM مصر (El Radio 9090)
+https://9090video.mobtada.com/hls/stream.m3u8
+#EXTINF:-1 tvg-logo="https://raw.githubusercontent.com/freetv-app/logos/master/images/quran-karim-cairo.png" group-title="إذاعات إسلامية",إذاعة الشيخ أحمد العجمي (قرآن كريم)
+https://backup.qurango.net/radio/ahmad_alajmy
+#EXTINF:-1 tvg-logo="https://raw.githubusercontent.com/freetv-app/logos/master/images/quran-karim-cairo.png" group-title="إذاعات إسلامية",إذاعة الشيخ إبراهيم الأخضر (قرآن كريم)
+https://backup.qurango.net/radio/ibrahim_alakdar
+#EXTINF:-1 tvg-logo="https://raw.githubusercontent.com/freetv-app/logos/master/images/quran-karim-cairo.png" group-title="إذاعات إسلامية",إذاعة صحيح البخاري
+https://backup.qurango.net/radio/saheh-bokharee
+#EXTINF:-1 tvg-logo="https://raw.githubusercontent.com/freetv-app/logos/master/images/quran-karim-cairo.png" group-title="إذاعات إسلامية",إذاعة قصص الأنبياء
+https://backup.qurango.net/radio/alanbiya
+#EXTINF:-1 tvg-logo="https://i.imgur.com/CiA3plN.png" group-title="قنوات وبث مباشر",بث إم بي سي مصر (MBC 1 Egypt Live Audio)
+https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-1-na/eec141533c90dd34722c503a296dd0d8/index.m3u8
 `;

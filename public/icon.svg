@@ -1,38 +1,114 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
+    <!-- Deep futuristic background gradient -->
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#1e1b4b"/>
-      <stop offset="50%" stop-color="#0f172a"/>
+      <stop offset="0%" stop-color="#090d16"/>
+      <stop offset="50%" stop-color="#0b1329"/>
       <stop offset="100%" stop-color="#020617"/>
     </linearGradient>
-    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#3b82f6"/>
-      <stop offset="100%" stop-color="#6366f1"/>
+
+    <!-- Glowing Tower Gradient -->
+    <linearGradient id="towerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="50%" stop-color="#0ea5e9"/>
+      <stop offset="100%" stop-color="#0369a1"/>
     </linearGradient>
-    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="16" result="blur"/>
+
+    <!-- Signal Wave Glow Gradient -->
+    <linearGradient id="waveCyan" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0.9"/>
+    </linearGradient>
+
+    <linearGradient id="beaconGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+
+    <!-- Blur filter for signal emissions -->
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="14" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+
+    <filter id="strongGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="22" result="blur"/>
       <feComposite in="SourceGraphic" in2="blur" operator="over"/>
     </filter>
   </defs>
-  <rect width="512" height="512" rx="110" fill="url(#bg)"/>
-  <rect x="16" y="16" width="480" height="480" rx="96" fill="none" stroke="#3b82f6" stroke-width="4" stroke-opacity="0.3"/>
-  
-  <!-- TV Monitor Body -->
-  <rect x="80" y="140" width="352" height="230" rx="32" fill="#1e293b" stroke="url(#accent)" stroke-width="8" filter="url(#glow)"/>
-  
-  <!-- TV Antenna -->
-  <path d="M200 80 L256 140 L312 80" fill="none" stroke="#60a5fa" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  
-  <!-- Play & Radio Waves Inside Screen -->
-  <polygon points="230,200 230,310 320,255" fill="#38bdf8"/>
-  <circle cx="360" cy="255" r="8" fill="#34d399"/>
-  <path d="M375 235 A 30 30 0 0 1 375 275" fill="none" stroke="#34d399" stroke-width="6" stroke-linecap="round"/>
-  <path d="M390 220 A 50 50 0 0 1 390 290" fill="none" stroke="#34d399" stroke-width="6" stroke-linecap="round"/>
 
-  <!-- TV Stand -->
-  <path d="M210 370 L190 410 L322 410 L302 370" fill="#334155"/>
-  <line x1="170" y1="410" x2="342" y2="410" stroke="#64748b" stroke-width="8" stroke-linecap="round"/>
+  <!-- App Icon Base Card -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect x="14" y="14" width="484" height="484" rx="100" fill="none" stroke="#38bdf8" stroke-width="3" stroke-opacity="0.35"/>
+
+  <!-- Concentric Radial Signal Waves Broadcasted from the Tower Mast (استقبال وإرسال من البرج) -->
+  <g filter="url(#glow)">
+    <!-- Wave 1 (Innermost) -->
+    <path d="M 205 130 A 60 60 0 0 1 307 130" fill="none" stroke="url(#waveCyan)" stroke-width="6.5" stroke-linecap="round"/>
+    <!-- Wave 2 (Middle) -->
+    <path d="M 165 105 A 110 110 0 0 1 347 105" fill="none" stroke="url(#waveCyan)" stroke-width="7" stroke-linecap="round" stroke-opacity="0.9"/>
+    <!-- Wave 3 (Outer) -->
+    <path d="M 120 75 A 165 165 0 0 1 392 75" fill="none" stroke="url(#waveCyan)" stroke-width="7.5" stroke-linecap="round" stroke-opacity="0.75"/>
+    <!-- Wave 4 (Outermost Ambient) -->
+    <path d="M 75 45 A 220 220 0 0 1 437 45" fill="none" stroke="url(#waveCyan)" stroke-width="8" stroke-linecap="round" stroke-opacity="0.5"/>
+  </g>
+
+  <!-- Side Reception Arcs (استقبال موجات لاسلكية يميناً ويساراً) -->
+  <g opacity="0.85">
+    <path d="M 180 180 A 85 85 0 0 0 180 280" fill="none" stroke="#38bdf8" stroke-width="5" stroke-linecap="round"/>
+    <path d="M 150 160 A 120 120 0 0 0 150 300" fill="none" stroke="#38bdf8" stroke-width="5.5" stroke-linecap="round" stroke-opacity="0.6"/>
+    
+    <path d="M 332 180 A 85 85 0 0 1 332 280" fill="none" stroke="#38bdf8" stroke-width="5" stroke-linecap="round"/>
+    <path d="M 362 160 A 120 120 0 0 1 362 300" fill="none" stroke="#38bdf8" stroke-width="5.5" stroke-linecap="round" stroke-opacity="0.6"/>
+  </g>
+
+  <!-- Transmission Mast & Lattice Tower Structure (برج إرسال واستقبال شبكي هندسي متين) -->
+  <!-- Main Vertical Tower Spire -->
+  <line x1="256" y1="140" x2="256" y2="185" stroke="#7dd3fc" stroke-width="8" stroke-linecap="round"/>
   
-  <!-- Text AudioCast -->
-  <text x="256" y="460" text-anchor="middle" fill="#93c5fd" font-family="system-ui, sans-serif" font-size="32" font-weight="900" letter-spacing="2">AUDIOCAST</text>
+  <!-- Tower Crossbars (Horizontal Platforms) -->
+  <line x1="226" y1="210" x2="286" y2="210" stroke="#38bdf8" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="206" y1="270" x2="306" y2="270" stroke="#38bdf8" stroke-width="7" stroke-linecap="round"/>
+  <line x1="186" y1="335" x2="326" y2="335" stroke="#38bdf8" stroke-width="8" stroke-linecap="round"/>
+  <line x1="162" y1="410" x2="350" y2="410" stroke="#0ea5e9" stroke-width="9" stroke-linecap="round"/>
+
+  <!-- Tower Legs (Main Diagonal Pillars) -->
+  <line x1="256" y1="185" x2="152" y2="440" stroke="url(#towerGrad)" stroke-width="10" stroke-linecap="round"/>
+  <line x1="256" y1="185" x2="360" y2="440" stroke="url(#towerGrad)" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- Diagonal Lattice Truss Braces (شبكة الجمالون المقواة للبرج) -->
+  <!-- Level 1: 185 to 210 -->
+  <line x1="256" y1="185" x2="226" y2="210" stroke="#0284c7" stroke-width="4.5"/>
+  <line x1="256" y1="185" x2="286" y2="210" stroke="#0284c7" stroke-width="4.5"/>
+  <!-- Level 2: 210 to 270 Crosses -->
+  <line x1="226" y1="210" x2="306" y2="270" stroke="#0284c7" stroke-width="5"/>
+  <line x1="286" y1="210" x2="206" y2="270" stroke="#0284c7" stroke-width="5"/>
+  <!-- Level 3: 270 to 335 Crosses -->
+  <line x1="206" y1="270" x2="326" y2="335" stroke="#0369a1" stroke-width="5.5"/>
+  <line x1="306" y1="270" x2="186" y2="335" stroke="#0369a1" stroke-width="5.5"/>
+  <!-- Level 4: 335 to 410 Crosses -->
+  <line x1="186" y1="335" x2="350" y2="410" stroke="#0369a1" stroke-width="6"/>
+  <line x1="326" y1="335" x2="162" y2="410" stroke="#0369a1" stroke-width="6"/>
+
+  <!-- Tower Ground Concrete Anchor Pedestals -->
+  <rect x="136" y="438" width="34" height="12" rx="4" fill="#64748b"/>
+  <rect x="342" y="438" width="34" height="12" rx="4" fill="#64748b"/>
+
+  <!-- Pulsing Transmission Beacon / Signal Emitter (رأس البرج المضغوط والمشع) -->
+  <circle cx="256" cy="140" r="32" fill="#38bdf8" opacity="0.3" filter="url(#strongGlow)"/>
+  <circle cx="256" cy="140" r="16" fill="url(#beaconGlow)" filter="url(#glow)"/>
+  <circle cx="256" cy="140" r="8" fill="#ffffff"/>
+
+  <!-- Audio Waveform Pulsing Bar below tower -->
+  <g transform="translate(196, 462)" opacity="0.9">
+    <rect x="0" y="8" width="6" height="14" rx="3" fill="#38bdf8"/>
+    <rect x="14" y="2" width="6" height="26" rx="3" fill="#38bdf8"/>
+    <rect x="28" y="10" width="6" height="10" rx="3" fill="#34d399"/>
+    <rect x="42" y="5" width="6" height="20" rx="3" fill="#34d399"/>
+    <rect x="56" y="0" width="6" height="30" rx="3" fill="#10b981"/>
+    <rect x="70" y="7" width="6" height="16" rx="3" fill="#38bdf8"/>
+    <rect x="84" y="12" width="6" height="8" rx="3" fill="#38bdf8"/>
+    <rect x="98" y="4" width="6" height="22" rx="3" fill="#38bdf8"/>
+    <rect x="112" y="9" width="6" height="12" rx="3" fill="#34d399"/>
+  </g>
 </svg>

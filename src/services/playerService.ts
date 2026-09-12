@@ -256,7 +256,19 @@ class PlayerEngine {
       this.hls = null;
     }
 
-    const isHls = url.includes('.m3u8') || url.includes('/hls/');
+    // Some streams have query params or lack .m3u8 extension but are HLS streams
+    const isHls =
+      url.includes('.m3u8') ||
+      url.includes('/hls/') ||
+      url.includes('chunklist') ||
+      url.includes('.smil');
+
+    // URLs that might need proxy if blocked by CORS in webview
+    const urlsToTry = [url];
+    if (url.startsWith('http://') && typeof window !== 'undefined' && window.location.protocol === 'https:') {
+      // Mixed-content fallback or direct
+      urlsToTry.push(`https://images.weserv.nl/?url=${encodeURIComponent(url.replace(/^http:\/\//, ''))}`);
+    }
 
     return new Promise((resolve) => {
       let resolved = false;
@@ -289,6 +301,23 @@ class PlayerEngine {
         this.audioElement.canPlayType('application/vnd.apple.mpegurl') ||
         this.audioElement.canPlayType('application/x-mpegURL');
 
+      const tryNativeAudio = (streamUrl: string) => {
+        if (!this.audioElement) return;
+        this.audioElement.src = streamUrl;
+        this.audioElement.load();
+        const playPromise = this.audioElement.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => markSuccess())
+            .catch((err) => {
+              console.warn('Native audio play error:', err);
+              markFailed();
+            });
+        } else {
+          markSuccess();
+        }
+      };
+
       if (isHls && Hls.isSupported()) {
         const hls = new Hls({
           enableWorker: false, // Prevents thread exhaustion & freeze on low-end Android TV SoCs
@@ -319,7 +348,10 @@ class PlayerEngine {
                 if (this.status === 'playing') {
                   this.handlePlaybackFailure();
                 } else {
-                  markFailed();
+                  // Attempt native fallback before failing
+                  hls.destroy();
+                  this.hls = null;
+                  tryNativeAudio(url);
                 }
                 break;
               case Hls.ErrorTypes.MEDIA_ERROR:
@@ -331,7 +363,7 @@ class PlayerEngine {
                 if (this.status === 'playing') {
                   this.handlePlaybackFailure();
                 } else {
-                  markFailed();
+                  tryNativeAudio(url);
                 }
                 break;
             }
@@ -339,19 +371,7 @@ class PlayerEngine {
         });
       } else {
         // Direct audio/video stream or Native Android HLS playback via HTML5 Audio
-        this.audioElement.src = url;
-        this.audioElement.load();
-        const playPromise = this.audioElement.play();
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => markSuccess())
-            .catch((err) => {
-              console.warn('Native audio play error:', err);
-              markFailed();
-            });
-        } else {
-          markSuccess();
-        }
+        tryNativeAudio(url);
       }
     });
   }

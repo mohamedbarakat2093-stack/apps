@@ -1,9 +1,10 @@
 import React from 'react';
-import { Upload, RefreshCw, Play, Pause, EyeOff, Square, Radio } from 'lucide-react';
+import { Upload, RefreshCw, Play, Pause, EyeOff, Square, Radio, Plus } from 'lucide-react';
 import { PlayerStatus } from '../types';
 
 interface TopControlsProps {
   onLoadNewFile: () => void;
+  onOpenAddChannelModal: () => void;
   onRefreshList: () => void;
   onTogglePlayPause: () => void;
   onHideScreen: () => void;
@@ -17,6 +18,7 @@ interface TopControlsProps {
 
 export const TopControls: React.FC<TopControlsProps> = ({
   onLoadNewFile,
+  onOpenAddChannelModal,
   onRefreshList,
   onTogglePlayPause,
   onHideScreen,
@@ -35,16 +37,28 @@ export const TopControls: React.FC<TopControlsProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Main Action Buttons Grid */}
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* زرار إضافة ودمج ملف m3u مع القنوات السابقة */}
+          {/* زرار إضافة ودمج ملف قنوات (M3U, CFG, TXT) */}
           <button
             id="btn-load-m3u"
             type="button"
             onClick={onLoadNewFile}
             className="tv-focusable flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-xl font-bold transition-all shadow-md hover:shadow-blue-600/40 cursor-pointer text-sm md:text-base border border-blue-500/50"
-            title="إضافة ملف قنوات جديد ودمجه مع القنوات الحالية دون فقدانها"
+            title="إضافة ملف قنوات جديد (M3U, M3U8, CFG, TXT) ودمجه مع القنوات الحالية دون فقدانها"
           >
             <Upload className="w-4 h-4" />
-            <span>إضافة ملف M3U (دمج)</span>
+            <span>إضافة ملف (M3U / CFG / TXT)</span>
+          </button>
+
+          {/* زر إضافة قناة صوتية مخصصة */}
+          <button
+            id="btn-add-custom-channel"
+            type="button"
+            onClick={onOpenAddChannelModal}
+            className="tv-focusable flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-xl font-bold transition-all shadow-md hover:shadow-emerald-600/40 cursor-pointer text-sm md:text-base border border-emerald-500/50"
+            title="إضافة قناة صوتية مخصصة بكتابة اسمها ورابط البث واختبارها فورياً"
+          >
+            <Plus className="w-4 h-4" />
+            <span>إضافة قناة صوتية</span>
           </button>
 
           {/* زرار تحديث القائمة */}
@@ -97,7 +111,7 @@ export const TopControls: React.FC<TopControlsProps> = ({
             type="button"
             onClick={onHideScreen}
             className="tv-focusable flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-200 border border-slate-700 rounded-xl font-medium transition-all text-sm md:text-base cursor-pointer"
-            title="إخفاء الشاشة مع استمرار البث والصوت في الخلفية (أو اضغط زر Home بالريموت)"
+            title="إخفاء الشاشة مع استمرار البث والصوت في الخلفية"
           >
             <EyeOff className="w-4 h-4 text-slate-400" />
             <span>Hide (إخفاء)</span>
