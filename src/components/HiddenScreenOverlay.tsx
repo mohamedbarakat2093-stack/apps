@@ -83,7 +83,7 @@ export const HiddenScreenOverlay: React.FC<HiddenScreenOverlayProps> = ({
               id="hidden-play-pause-btn"
               type="button"
               onClick={onTogglePlayPause}
-              className={`px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-bold transition-all cursor-pointer ${
+              className={`tv-focusable px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-bold transition-all cursor-pointer ${
                 isPlaying
                   ? 'bg-amber-600 hover:bg-amber-500 text-white'
                   : 'bg-emerald-600 hover:bg-emerald-500 text-white'
@@ -100,7 +100,7 @@ export const HiddenScreenOverlay: React.FC<HiddenScreenOverlayProps> = ({
                 onStop();
                 onRestore();
               }}
-              className="px-4 py-2 rounded-xl bg-rose-900/40 hover:bg-rose-900/70 text-rose-300 border border-rose-800/50 flex items-center gap-2 text-sm font-medium transition-all cursor-pointer"
+              className="tv-focusable px-4 py-2 rounded-xl bg-rose-900/40 hover:bg-rose-900/70 text-rose-300 border border-rose-800/50 flex items-center gap-2 text-sm font-medium transition-all cursor-pointer"
             >
               <Square className="w-4 h-4 fill-current" />
               <span>إيقاف</span>
@@ -114,7 +114,7 @@ export const HiddenScreenOverlay: React.FC<HiddenScreenOverlayProps> = ({
             id="btn-restore-app"
             type="button"
             onClick={onRestore}
-            className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 transition-all cursor-pointer"
+            className="tv-focusable w-full py-3 px-4 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 transition-all cursor-pointer"
           >
             <Eye className="w-4 h-4" />
             <span>إظهار التطبيق (Restore)</span>

@@ -3,7 +3,6 @@ import { TopControls } from './components/TopControls';
 import { ForegroundNotification } from './components/ForegroundNotification';
 import { ChannelList } from './components/ChannelList';
 import { HiddenScreenOverlay } from './components/HiddenScreenOverlay';
-import { ApkInstallModal } from './components/ApkInstallModal';
 import { parseM3U, DEFAULT_SAMPLE_M3U } from './utils/m3uParser';
 import { playerEngine } from './services/playerService';
 import { Channel, PlayerStatus, RetryState, StoredPlaylist } from './types';
@@ -26,7 +25,6 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'error' | 'success' | 'info' } | null>(null);
   const [isHiddenScreen, setIsHiddenScreen] = useState<boolean>(false);
   const [autoplayBlockedChannel, setAutoplayBlockedChannel] = useState<Channel | null>(null);
-  const [showApkGuide, setShowApkGuide] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const toastTimeoutRef = useRef<any>(null);
@@ -420,19 +418,11 @@ export default function App() {
           onTogglePlayPause={handleTogglePlayPause}
           onHideScreen={handleHideScreen}
           onStop={handleStop}
-          onOpenApkGuide={() => setShowApkGuide(true)}
           hasChannels={channels.length > 0}
           activeChannelName={activeChannel ? activeChannel.name : null}
           status={playerStatus}
           hasSavedFile={!!savedPlaylist}
           savedFileName={savedPlaylist?.fileName}
-        />
-
-        {/* Modal: APK Installation & Receiver Setup Guide */}
-        <ApkInstallModal
-          isOpen={showApkGuide}
-          onClose={() => setShowApkGuide(false)}
-          appUrl={window.location.origin}
         />
 
         {/* 3 & 5. Foreground Service & MediaSession System Notification */}

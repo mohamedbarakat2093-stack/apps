@@ -102,7 +102,7 @@ export const ForegroundNotification: React.FC<ForegroundNotificationProps> = ({
             type="button"
             onClick={onTogglePlayPause}
             disabled={isLoading || isReconnecting}
-            className={`p-3 rounded-xl font-bold flex items-center gap-2 transition-all cursor-pointer ${
+            className={`tv-focusable p-3 rounded-xl font-bold flex items-center gap-2 transition-all cursor-pointer ${
               isPlaying
                 ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30'
                 : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30'
@@ -127,7 +127,7 @@ export const ForegroundNotification: React.FC<ForegroundNotificationProps> = ({
             id="notification-btn-stop"
             type="button"
             onClick={onStop}
-            className="p-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-2 transition-all cursor-pointer"
+            className="tv-focusable p-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-2 transition-all cursor-pointer"
             title="إيقاف الخدمة والإشعار نهائياً (Stop)"
           >
             <Square className="w-4 h-4 fill-current" />

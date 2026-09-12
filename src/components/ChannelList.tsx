@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Volume2, Search, Radio, Tv, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Volume2, Search, Radio, Tv, Trash2, ChevronLeft, ChevronRight, Play } from 'lucide-react';
 import { Channel, PlayerStatus } from '../types';
 
 interface ChannelListProps {
@@ -11,7 +11,7 @@ interface ChannelListProps {
   onClearAllChannels: () => void;
 }
 
-const ITEMS_PER_PAGE = 40; // خفيف جداً على رامات ومعالج الرسيفر
+const ITEMS_PER_PAGE = 40; // خفيف وسريع على رامات ومعالج الرسيفر
 
 export const ChannelList: React.FC<ChannelListProps> = ({
   channels,
@@ -55,7 +55,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
     });
   }, [channels, searchQuery, selectedGroup]);
 
-  // Pagination for weak Android TV boxes (prevents freezing DOM)
+  // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredChannels.length / ITEMS_PER_PAGE));
   const safeCurrentPage = Math.min(currentPage, totalPages);
 
@@ -64,7 +64,6 @@ export const ChannelList: React.FC<ChannelListProps> = ({
     return filteredChannels.slice(start, start + ITEMS_PER_PAGE);
   }, [filteredChannels, safeCurrentPage]);
 
-  // Reset page when searching or changing group
   const handleSearchChange = (val: string) => {
     setSearchQuery(val);
     setCurrentPage(1);
@@ -121,14 +120,14 @@ export const ChannelList: React.FC<ChannelListProps> = ({
                   onClearAllChannels();
                   setShowClearConfirm(false);
                 }}
-                className="px-2 py-0.5 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold cursor-pointer transition-colors"
+                className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg font-bold cursor-pointer transition-colors"
               >
                 نعم، مسح الكل
               </button>
               <button
                 type="button"
                 onClick={() => setShowClearConfirm(false)}
-                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded cursor-pointer transition-colors"
+                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg cursor-pointer transition-colors"
               >
                 إلغاء
               </button>
@@ -138,7 +137,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
               id="btn-clear-all-channels"
               type="button"
               onClick={() => setShowClearConfirm(true)}
-              className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-xl text-rose-400 hover:text-rose-200 bg-rose-950/30 hover:bg-rose-900/50 border border-rose-900/40 hover:border-rose-800 transition-all cursor-pointer"
+              className="tv-focusable flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-xl text-rose-400 hover:text-rose-200 bg-rose-950/30 hover:bg-rose-900/50 border border-rose-900/40 hover:border-rose-800 transition-all cursor-pointer"
               title="مسح قائمة القنوات بالكامل"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -168,7 +167,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
                 id="channel-group-filter"
                 value={selectedGroup}
                 onChange={(e) => handleGroupChange(e.target.value)}
-                className="bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 py-2 px-3 focus:outline-none focus:border-blue-500 cursor-pointer"
+                className="tv-focusable bg-slate-800 border border-slate-700 rounded-xl text-xs text-slate-200 py-2 px-3 focus:outline-none focus:border-blue-500 cursor-pointer"
               >
                 <option value="all">كل المجموعات ({channels.length})</option>
                 {groups.map((group) => (
@@ -182,10 +181,10 @@ export const ChannelList: React.FC<ChannelListProps> = ({
         </div>
       </div>
 
-      {/* Channels Grid / List (Lightweight DOM for Android TV) */}
+      {/* Channels Grid / List with High Visibility TV Remote Focus & Hover Animation */}
       <div
         id="channels-scroll-container"
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[56vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-[58vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900"
       >
         {paginatedChannels.map((channel, idx) => {
           const globalIdx = (safeCurrentPage - 1) * ITEMS_PER_PAGE + idx;
@@ -204,39 +203,39 @@ export const ChannelList: React.FC<ChannelListProps> = ({
                   onSelectChannel(channel);
                 }
               }}
-              className={`group flex items-center justify-between gap-2 p-2.5 rounded-xl text-right transition-colors cursor-pointer border focus:outline-none focus:ring-2 focus:ring-emerald-400 ${
+              className={`tv-focusable group flex items-center justify-between gap-2.5 p-3 rounded-2xl text-right cursor-pointer border transition-all duration-150 select-none ${
                 isCurrentActive
-                  ? 'bg-emerald-950/80 border-emerald-500 text-white shadow-md'
-                  : 'bg-slate-800/70 hover:bg-slate-800 focus:bg-slate-800 border-slate-700/60 hover:border-slate-600 text-slate-200'
+                  ? 'tv-channel-active bg-gradient-to-l from-emerald-950/90 to-slate-900 border-emerald-500 text-white'
+                  : 'bg-slate-800/80 hover:bg-slate-800 border-slate-700/80 hover:border-slate-500 text-slate-200 shadow-sm'
               }`}
             >
-              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 {/* Play / Active Icon */}
                 <div
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all ${
                     isCurrentActive
                       ? isPlaying
-                        ? 'bg-emerald-500 text-white'
-                        : 'bg-amber-500 text-white'
-                      : 'bg-slate-700/60 text-slate-400'
+                        ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/40'
+                        : 'bg-amber-500 text-white shadow-lg shadow-amber-500/40'
+                      : 'bg-slate-700/70 text-slate-300 group-hover:bg-blue-600 group-hover:text-white group-focus:bg-blue-600 group-focus:text-white'
                   }`}
                 >
                   {isCurrentActive ? (
                     isPlaying ? (
-                      <span className="text-xs font-black">▶</span>
+                      <span className="text-sm font-black">▶</span>
                     ) : isLoading ? (
-                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     ) : (
-                      <Volume2 className="w-3.5 h-3.5" />
+                      <Volume2 className="w-4 h-4" />
                     )
                   ) : (
-                    <span className="text-[11px] font-mono text-slate-400">{globalIdx + 1}</span>
+                    <span className="text-xs font-mono font-bold">{globalIdx + 1}</span>
                   )}
                 </div>
 
                 {/* Logo / Thumbnail if exists */}
                 {channel.logo ? (
-                  <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-700/60 overflow-hidden shrink-0 flex items-center justify-center p-0.5">
+                  <div className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-700/80 overflow-hidden shrink-0 flex items-center justify-center p-0.5">
                     <img
                       src={channel.logo}
                       alt={channel.name}
@@ -253,12 +252,16 @@ export const ChannelList: React.FC<ChannelListProps> = ({
                 {/* Channel Meta */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <h4 className={`text-xs sm:text-sm font-bold truncate ${isCurrentActive ? 'text-emerald-300' : 'text-slate-100'}`}>
+                    <h4 className={`text-sm font-bold truncate transition-colors ${
+                      isCurrentActive 
+                        ? 'text-emerald-300' 
+                        : 'text-slate-100 group-hover:text-blue-300 group-focus:text-blue-300'
+                    }`}>
                       {channel.name}
                     </h4>
                     {isCurrentActive && (
-                      <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        ▶ شغالة
+                      <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                        {isPlaying ? '▶ شغالة' : 'مؤقت'}
                       </span>
                     )}
                   </div>
@@ -276,39 +279,39 @@ export const ChannelList: React.FC<ChannelListProps> = ({
                 id={`btn-delete-channel-${channel.id || globalIdx}`}
                 onClick={(e) => onDeleteChannel(channel.id, e)}
                 title="حذف هذه القناة من القائمة"
-                className="opacity-40 group-hover:opacity-100 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 p-1.5 rounded-lg transition-colors shrink-0 cursor-pointer"
+                className="opacity-40 group-hover:opacity-100 group-focus:opacity-100 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 p-1.5 rounded-xl transition-all shrink-0 cursor-pointer"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Trash2 className="w-4 h-4" />
               </button>
             </div>
           );
         })}
       </div>
 
-      {/* Pagination Controls (Easy on TV Remote) */}
+      {/* Pagination Controls with high visibility TV Focus */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-xs">
           <button
             type="button"
             disabled={safeCurrentPage <= 1}
             onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-            className="flex items-center gap-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 rounded-lg transition-colors cursor-pointer"
+            className="tv-focusable flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-200 rounded-xl transition-all cursor-pointer font-bold border border-slate-700"
           >
             <ChevronRight className="w-4 h-4" />
-            <span>السابق</span>
+            <span>الصفحة السابقة</span>
           </button>
 
-          <span className="text-slate-400 font-mono">
-            صفحة <strong className="text-white">{safeCurrentPage}</strong> من <strong className="text-slate-300">{totalPages}</strong>
+          <span className="text-slate-300 font-mono text-sm">
+            صفحة <strong className="text-emerald-400 text-base">{safeCurrentPage}</strong> من <strong className="text-slate-300">{totalPages}</strong>
           </span>
 
           <button
             type="button"
             disabled={safeCurrentPage >= totalPages}
             onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-            className="flex items-center gap-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 rounded-lg transition-colors cursor-pointer"
+            className="tv-focusable flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-200 rounded-xl transition-all cursor-pointer font-bold border border-slate-700"
           >
-            <span>التالي</span>
+            <span>الصفحة التالية</span>
             <ChevronLeft className="w-4 h-4" />
           </button>
         </div>
