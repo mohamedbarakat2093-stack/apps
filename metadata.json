@@ -1,6 +1,6 @@
 {
   "name": "AudioCast",
-  "description": "مشغل قنوات وبثوث M3U مع دعم التشغيل في الخلفية، استئناف التشغيل التلقائي، ومراقبة الاتصال",
+  "description": "مشغل قنوات وبثوث M3U عبر محرك Hls.js متعدد البروتوكولات وتدفقات البث المباشر، باقات الإذاعات المصرية وقراء القرآن والمطربين، وأولوية الصوت القصوى",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

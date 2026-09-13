@@ -6,14 +6,23 @@ export type PlayerEventCallback = {
   onActiveChannelChange: (channel: Channel | null) => void;
   onRetryUpdate: (retry: RetryState) => void;
   onErrorToast: (message: string) => void;
+  onStatsUpdate?: (stats: StreamStats) => void;
 };
 
-const RETRY_DELAYS = [2000, 4000, 6000]; // 2s, 4s, 6s as specified in step 4
+export interface StreamStats {
+  format: 'HLS (m3u8)' | 'Direct Audio' | 'MP3 / AAC';
+  protocol: 'HTTP' | 'HTTPS';
+  bufferSeconds: number;
+  engine: string;
+}
+
+const RETRY_DELAYS = [2000, 4000, 6000];
 
 class PlayerEngine {
   private audioElement: HTMLAudioElement | null = null;
   private hls: Hls | null = null;
   private audioContext: AudioContext | null = null;
+  private silentGainNode: GainNode | null = null;
   private activeChannel: Channel | null = null;
   private status: PlayerStatus = 'idle';
   private callbacks: PlayerEventCallback | null = null;
@@ -22,52 +31,254 @@ class PlayerEngine {
   private retryTimeoutId: any = null;
   private isUserInitiatedStop = false;
   private isReconnecting = false;
-  private playTimeoutId: any = null;
+  private statsInterval: any = null;
+  private wakeLock: any = null;
+  private autoResumeTimer: any = null;
+
+  // Playback tracking
+  private playbackStarted = false;
+  private loadTimeoutId: any = null;
 
   constructor() {
-    this.initAudioElement();
+    this.getOrCreateAudioElement();
+    this.setupBackgroundKeepAlive();
   }
 
-  private initAudioElement() {
-    if (typeof window === 'undefined') return;
+  /**
+   * Standard HTML5 Audio Element with preload="none" and No-CORS Mode.
+   * Directly delegates stream buffering and parsing to the operating system layer.
+   */
+  private getOrCreateAudioElement(): HTMLAudioElement {
+    if (!this.audioElement) {
+      const audio = new Audio();
+      audio.id = 'audiocast-audio-core';
+      audio.preload = 'none';
+      audio.autoplay = false;
+      audio.removeAttribute('crossOrigin');
 
-    this.audioElement = new Audio();
-    this.audioElement.preload = 'auto';
-    this.audioElement.autoplay = false;
+      this.attachAudioListeners(audio);
+      this.audioElement = audio;
 
-    this.audioElement.addEventListener('playing', () => {
-      this.clearPlayTimeout();
-      this.isReconnecting = false;
-      this.retryCount = 0;
-      this.notifyRetryState({ attempt: 0, maxAttempts: 3, delaySeconds: 0, active: false });
-      this.setStatus('playing');
-      this.updateMediaSessionPlaybackState('playing');
+      // Periodic stream stats if running in browser
+      if (!this.statsInterval && typeof window !== 'undefined') {
+        this.statsInterval = setInterval(() => {
+          if (this.status === 'playing' && this.audioElement && this.activeChannel) {
+            let bufferSeconds = 0;
+            try {
+              const buffered = this.audioElement.buffered;
+              if (buffered.length > 0) {
+                bufferSeconds = Math.max(0, buffered.end(buffered.length - 1) - this.audioElement.currentTime);
+              }
+            } catch (_) {}
+
+            const url = this.activeChannel.url;
+            const isHls = Boolean(this.hls) || /\.m3u8($|\?)/i.test(url);
+
+            this.callbacks?.onStatsUpdate?.({
+              format: isHls ? 'HLS (m3u8)' : 'Direct Audio',
+              protocol: url.startsWith('http://') ? 'HTTP' : 'HTTPS',
+              bufferSeconds: Math.round(bufferSeconds * 10) / 10,
+              engine: isHls ? 'Hls.js Live Engine' : 'HTML5 Standard Audio (OS Stream)',
+            });
+          }
+        }, 3000);
+      }
+    }
+
+    return this.audioElement;
+  }
+
+  private attachAudioListeners(audio: HTMLAudioElement) {
+    audio.addEventListener('playing', () => {
+      this.markPlaybackStarted();
     });
 
-    this.audioElement.addEventListener('pause', () => {
-      if (this.status === 'playing') {
+    audio.addEventListener('timeupdate', () => {
+      if (audio.currentTime > 0.1 && !this.playbackStarted) {
+        this.markPlaybackStarted();
+      }
+    });
+
+    audio.addEventListener('pause', () => {
+      // If user intentionally paused/stopped
+      if (this.isUserInitiatedStop) {
         this.setStatus('paused');
         this.updateMediaSessionPlaybackState('paused');
+        return;
+      }
+
+      // If auto-paused by WebView / OS when tab is minimized or loses focus,
+      // prevent interruption and keep sound streaming continuously in background
+      if (this.status === 'playing' || this.status === 'loading') {
+        if (this.autoResumeTimer) clearTimeout(this.autoResumeTimer);
+        this.autoResumeTimer = setTimeout(() => {
+          if (!this.isUserInitiatedStop && this.audioElement && this.activeChannel) {
+            this.audioElement.play().catch(() => {});
+          }
+        }, 80);
       }
     });
 
-    this.audioElement.addEventListener('waiting', () => {
+    audio.addEventListener('error', (e) => {
+      console.warn('Audio stream error event:', e);
+      if (this.status === 'playing' && this.playbackStarted) {
+        this.handleStreamDrop();
+      } else if (this.status === 'loading') {
+        // إظهار رسالة الخطأ فوراً كما كانت في الأول دون أي تأخير
+        this.handleChannelUnavailable('القناة غير متاحة');
+      }
+    });
+
+    audio.addEventListener('stalled', () => {
       if (this.status === 'playing') {
-        // network buffering or momentary stall
+        console.warn('Playback buffering stream chunks...');
       }
     });
+  }
 
-    this.audioElement.addEventListener('error', (e) => {
-      console.warn('Audio element error:', e);
-      this.handlePlaybackFailure();
-    });
+  /**
+   * Called when audio successfully begins emitting sound
+   */
+  private markPlaybackStarted() {
+    this.playbackStarted = true;
+    if (this.loadTimeoutId) {
+      clearTimeout(this.loadTimeoutId);
+      this.loadTimeoutId = null;
+    }
 
-    this.audioElement.addEventListener('stalled', () => {
-      if (this.status === 'playing') {
-        console.warn('Playback stalled, checking connection...');
-        // If stalled for too long, might be disconnected
+    this.isReconnecting = false;
+    this.retryCount = 0;
+    this.notifyRetryState({ attempt: 0, maxAttempts: 3, delaySeconds: 0, active: false });
+    this.setStatus('playing');
+    this.updateMediaSessionPlaybackState('playing');
+    this.acquireWakeLock();
+    this.enforceExclusiveAudioFocus();
+  }
+
+  /**
+   * إظهار رسالة "القناة غير متاحة" فوراً وإيقاف حالة التحميل
+   */
+  private handleChannelUnavailable(message: string = 'القناة غير متاحة') {
+    if (this.isUserInitiatedStop) return;
+
+    if (this.loadTimeoutId) {
+      clearTimeout(this.loadTimeoutId);
+      this.loadTimeoutId = null;
+    }
+
+    console.warn('Stream unavailable:', message);
+    this.stopPreviousStream();
+    this.setStatus('idle');
+    this.callbacks?.onErrorToast(message);
+  }
+
+  /**
+   * Stop and purge previous player instances (HLS and audio element).
+   * Prevents memory leaks and audio overlapping.
+   */
+  public stopPreviousStream() {
+    if (this.loadTimeoutId) {
+      clearTimeout(this.loadTimeoutId);
+      this.loadTimeoutId = null;
+    }
+
+    // 1. Destroy Hls instance
+    if (this.hls) {
+      try {
+        this.hls.destroy();
+      } catch (err) {
+        console.warn('Error destroying HLS instance:', err);
       }
-    });
+      this.hls = null;
+    }
+
+    // 2. Purge audio element
+    if (this.audioElement) {
+      try {
+        this.audioElement.pause();
+        this.audioElement.removeAttribute('src');
+        this.audioElement.src = '';
+        this.audioElement.load();
+      } catch (err) {
+        console.warn('Error purging audio element:', err);
+      }
+    }
+  }
+
+  /**
+   * Keeps audio actively playing in background:
+   * Prevents WebView from stopping <audio> when page is hidden or window loses focus (Home/Hide).
+   */
+  private setupBackgroundKeepAlive() {
+    if (typeof document === 'undefined') return;
+
+    const maintainBackground = () => {
+      if (!this.isUserInitiatedStop && this.activeChannel && this.audioElement) {
+        // 1. Re-acquire WakeLock
+        this.acquireWakeLock();
+
+        // 2. Resume Web Audio Context if suspended
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+          this.audioContext.resume().catch(() => {});
+        }
+
+        // 3. Keep audio element streaming
+        if (this.audioElement.paused) {
+          this.audioElement.play().catch(() => {});
+        }
+
+        // 4. Keep system MediaSession state playing
+        this.updateMediaSessionPlaybackState('playing');
+      }
+    };
+
+    document.addEventListener('visibilitychange', maintainBackground);
+    window.addEventListener('pagehide', maintainBackground);
+    window.addEventListener('blur', maintainBackground);
+    window.addEventListener('focus', maintainBackground);
+  }
+
+  /**
+   * Public method to lock and maintain background playback when user clicks Hide
+   */
+  public maintainBackgroundPlayback() {
+    this.acquireWakeLock();
+    if (this.audioContext && this.audioContext.state === 'suspended') {
+      this.audioContext.resume().catch(() => {});
+    }
+    if (this.audioElement && this.audioElement.paused && !this.isUserInitiatedStop && this.activeChannel) {
+      this.audioElement.play().catch(() => {});
+    }
+    this.updateMediaSessionPlaybackState('playing');
+  }
+
+  /**
+   * Acquire WakeLock so system / screen does not sleep while playing
+   */
+  public async acquireWakeLock() {
+    try {
+      if (typeof navigator !== 'undefined' && 'wakeLock' in navigator && (navigator as any).wakeLock) {
+        if (this.wakeLock && !this.wakeLock.released) {
+          return;
+        }
+        this.wakeLock = await (navigator as any).wakeLock.request('screen');
+        this.wakeLock.addEventListener('release', () => {
+          this.wakeLock = null;
+          if (!this.isUserInitiatedStop && this.status === 'playing') {
+            setTimeout(() => this.acquireWakeLock(), 1000);
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
+  private releaseWakeLock() {
+    try {
+      if (this.wakeLock) {
+        this.wakeLock.release();
+        this.wakeLock = null;
+      }
+    } catch (_) {}
   }
 
   public setCallbacks(cbs: PlayerEventCallback) {
@@ -92,41 +303,89 @@ class PlayerEngine {
   }
 
   /**
+   * Enforce Exclusive Audio Focus:
+   * Mutes and pauses all other media elements on page.
+   * Maximizes volume on the active stream to ensure full, unmuted sound.
+   */
+  public enforceExclusiveAudioFocus() {
+    if (typeof document === 'undefined') return;
+
+    try {
+      const allMedia = document.querySelectorAll('audio, video');
+      allMedia.forEach((media) => {
+        if (media !== this.audioElement) {
+          const mediaEl = media as HTMLMediaElement;
+          try {
+            mediaEl.muted = true;
+            mediaEl.pause();
+          } catch (_) {}
+        }
+      });
+
+      if (this.audioElement) {
+        this.audioElement.muted = false;
+        this.audioElement.volume = 1.0;
+      }
+
+      window.dispatchEvent(new CustomEvent('audiocast:audiofocus_gain'));
+    } catch (err) {
+      console.warn('Error enforcing audio focus:', err);
+    }
+  }
+
+  /**
    * Request Audio Focus using Web Audio Context
+   * Initializes audio context to seize exclusive audio routing from the OS
    */
   private async requestAudioFocus(): Promise<boolean> {
     try {
+      this.enforceExclusiveAudioFocus();
+
       if (!this.audioContext) {
         const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
         if (AudioContextClass) {
           this.audioContext = new AudioContextClass();
         }
       }
-      if (this.audioContext && this.audioContext.state === 'suspended') {
-        await this.audioContext.resume();
+
+      if (this.audioContext) {
+        if (this.audioContext.state === 'suspended') {
+          await this.audioContext.resume();
+        }
+
+        // Silent keep-alive to keep the OS audio pipeline active
+        if (!this.silentGainNode) {
+          try {
+            const osc = this.audioContext.createOscillator();
+            const gain = this.audioContext.createGain();
+            gain.gain.value = 0.00001; // virtually inaudible keep-alive
+            osc.connect(gain);
+            gain.connect(this.audioContext.destination);
+            osc.start();
+            this.silentGainNode = gain;
+          } catch (_) {}
+        }
       }
       return true;
     } catch (err) {
-      console.warn('Audio focus request error:', err);
-      return true; // Still allow audio playback attempt
+      console.warn('Audio focus request notice:', err);
+      return true;
     }
   }
 
-  /**
-   * Release Audio Focus
-   */
   private releaseAudioFocus() {
     try {
       if (this.audioContext && this.audioContext.state === 'running') {
         this.audioContext.suspend();
       }
+      this.releaseWakeLock();
     } catch (err) {
       console.warn('Audio focus release error:', err);
     }
   }
 
   /**
-   * Setup System MediaSession
+   * Setup System MediaSession for Lockscreen / Background / TV OS
    */
   private setupMediaSession(channel: Channel) {
     if (typeof window !== 'undefined' && 'mediaSession' in navigator && (window as any).MediaMetadata) {
@@ -142,10 +401,12 @@ class PlayerEngine {
 
         navigator.mediaSession.metadata = new MediaMetadata({
           title: channel.name,
-          artist: channel.group || 'بث مباشر',
-          album: 'AudioCast',
+          artist: channel.group || 'AudioCast Live',
+          album: 'AudioCast Internal Player',
           artwork,
         });
+
+        navigator.mediaSession.playbackState = 'playing';
 
         navigator.mediaSession.setActionHandler('play', () => {
           this.resume();
@@ -158,8 +419,12 @@ class PlayerEngine {
         navigator.mediaSession.setActionHandler('stop', () => {
           this.stop(true);
         });
+
+        try {
+          navigator.mediaSession.setActionHandler('seekto', () => {});
+        } catch (_) {}
       } catch (e) {
-        console.warn('MediaSession setup caught non-fatal exception:', e);
+        console.warn('MediaSession setup non-fatal exception:', e);
       }
     }
   }
@@ -168,9 +433,7 @@ class PlayerEngine {
     if (typeof window !== 'undefined' && 'mediaSession' in navigator) {
       try {
         navigator.mediaSession.playbackState = state;
-      } catch (_) {
-        // Safe ignore for older Android WebView versions
-      }
+      } catch (_) {}
     }
   }
 
@@ -182,16 +445,7 @@ class PlayerEngine {
         navigator.mediaSession.setActionHandler('play', null);
         navigator.mediaSession.setActionHandler('pause', null);
         navigator.mediaSession.setActionHandler('stop', null);
-      } catch (_) {
-        // Safe ignore for older Android WebView versions
-      }
-    }
-  }
-
-  private clearPlayTimeout() {
-    if (this.playTimeoutId) {
-      clearTimeout(this.playTimeoutId);
-      this.playTimeoutId = null;
+      } catch (_) {}
     }
   }
 
@@ -205,202 +459,197 @@ class PlayerEngine {
   }
 
   /**
-   * 3. عند الضغط على قناة من القائمة
+   * Play Channel:
+   * Direct embedded playback inside the application.
+   * Starts immediately with instant error feedback.
    */
-  public async playChannel(channel: Channel, isAutoResume = false): Promise<boolean> {
+  public async playChannel(channel: Channel, _isAutoResume = false): Promise<boolean> {
     this.clearRetryTimer();
-    this.clearPlayTimeout();
     this.isUserInitiatedStop = false;
 
-    // لو فيه قناة شغالة حالياً -> يوقفها الأول
-    if (this.activeChannel) {
-      this.stopInternal(false);
-    }
+    // 1. إيقاف وتفريغ المشغل السابق عند التبديل لمنع تداخل الذاكرة
+    this.stopPreviousStream();
 
     this.activeChannel = channel;
     this.callbacks?.onActiveChannelChange(channel);
     this.setStatus('loading');
+    this.playbackStarted = false;
 
-    // يطلب Audio Focus
+    // مهلة أمان سريعة للتحميل: إذا لم يستجب السيرفر فوراً تظهر رسالة القناة غير متاحة بدون تأخير طويل
+    if (this.loadTimeoutId) clearTimeout(this.loadTimeoutId);
+    this.loadTimeoutId = setTimeout(() => {
+      if (this.status === 'loading' && !this.playbackStarted) {
+        this.handleChannelUnavailable('القناة غير متاحة');
+      }
+    }, 2000);
+
+    // 2. طلب السيطرة الكاملة والحصرية على الصوت
     await this.requestAudioFocus();
 
-    // يجهّز الـ MediaSession
+    // 3. تهيئة MediaSession والحفاظ على الجلسة الحصرية
     this.setupMediaSession(channel);
 
-    // Save as last played channel in localStorage
+    // 4. حفظ القناة كآخر قناة تم تشغيلها
     try {
       localStorage.setItem('m3u_last_played_channel', JSON.stringify(channel));
     } catch (e) {
       console.warn('Failed to persist last played channel', e);
     }
 
-    // Start playback
-    const success = await this.loadStreamSource(channel.url);
-    if (!success) {
-      // لو الرابط معطوب أو مش بيرد:
-      // رسالة واضحة: "القناة دي مش متاحة دلوقتي"
-      // يفضل مكانه في القائمة بدون ما يتحدد كـ "شغال"
-      this.handleInitialLoadError();
-      return false;
-    }
-
+    // 5. بدء محاولة التشغيل فوراً
+    await this.startPlayback(channel.url);
     return true;
   }
 
-  private async loadStreamSource(url: string): Promise<boolean> {
-    if (!this.audioElement) return false;
+  /**
+   * Main playback router:
+   * - If .m3u8: Use Hls.js
+   * - ALL other links: Play DIRECTLY via HTML5 Audio Element without mpegts.js or fetch headers.
+   */
+  private async startPlayback(url: string): Promise<boolean> {
+    const cleanUrl = url.trim();
+    if (!cleanUrl) return false;
 
-    // Reset current audio
-    if (this.hls) {
-      this.hls.destroy();
-      this.hls = null;
+    const isM3u8 = /\.m3u8($|\?)/i.test(cleanUrl);
+
+    // 1. If it's explicitly an HLS stream, use Hls.js
+    if (isM3u8 && Hls.isSupported()) {
+      return this.playHlsStream(cleanUrl);
     }
 
-    // Some streams have query params or lack .m3u8 extension but are HLS streams
-    const isHls =
-      url.includes('.m3u8') ||
-      url.includes('/hls/') ||
-      url.includes('chunklist') ||
-      url.includes('.smil');
+    // 2. Direct HTML5 Audio playback for all other streams
+    return this.playDirectAudio(cleanUrl);
+  }
 
-    // URLs that might need proxy if blocked by CORS in webview
-    const urlsToTry = [url];
-    if (url.startsWith('http://') && typeof window !== 'undefined' && window.location.protocol === 'https:') {
-      // Mixed-content fallback or direct
-      urlsToTry.push(`https://images.weserv.nl/?url=${encodeURIComponent(url.replace(/^http:\/\//, ''))}`);
-    }
+  /**
+   * Play .m3u8 using Hls.js without modifying XHR headers
+   */
+  private playHlsStream(url: string): Promise<boolean> {
+    const audio = this.getOrCreateAudioElement();
 
     return new Promise((resolve) => {
       let resolved = false;
 
-      const markFailed = () => {
+      const finish = (success: boolean) => {
         if (!resolved) {
           resolved = true;
-          this.clearPlayTimeout();
-          resolve(false);
+          if (success) {
+            this.markPlaybackStarted();
+          }
+          resolve(success);
         }
       };
 
-      const markSuccess = () => {
-        if (!resolved) {
-          resolved = true;
-          this.clearPlayTimeout();
-          resolve(true);
-        }
-      };
-
-      // Timeout if stream doesn't respond within 9 seconds
-      this.playTimeoutId = setTimeout(() => {
-        if (this.status === 'loading') {
-          console.warn('Stream initial load timed out');
-          markFailed();
-        }
-      }, 9000);
-
-      const canPlayHlsNatively =
-        this.audioElement.canPlayType('application/vnd.apple.mpegurl') ||
-        this.audioElement.canPlayType('application/x-mpegURL');
-
-      const tryNativeAudio = (streamUrl: string) => {
-        if (!this.audioElement) return;
-        this.audioElement.src = streamUrl;
-        this.audioElement.load();
-        const playPromise = this.audioElement.play();
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => markSuccess())
-            .catch((err) => {
-              console.warn('Native audio play error:', err);
-              markFailed();
-            });
-        } else {
-          markSuccess();
-        }
-      };
-
-      if (isHls && Hls.isSupported()) {
+      try {
         const hls = new Hls({
-          enableWorker: false, // Prevents thread exhaustion & freeze on low-end Android TV SoCs
-          lowLatencyMode: false,
-          maxBufferLength: 10, // Keep memory tiny (10 seconds buffer instead of default 60s)
-          maxMaxBufferLength: 15,
-          maxBufferSize: 5 * 1000 * 1000, // Max 5MB buffer in RAM
-          backBufferLength: 5,
+          enableWorker: true,
+          lowLatencyMode: true,
+          backBufferLength: 10,
         });
+
         this.hls = hls;
 
+        let hasFallenBack = false;
+        const triggerDirectFallback = () => {
+          if (hasFallenBack) return;
+          hasFallenBack = true;
+          this.stopPreviousStream();
+          this.playDirectAudio(url).then(finish);
+        };
+
         hls.loadSource(url);
-        hls.attachMedia(this.audioElement!);
+        hls.attachMedia(audio);
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          this.audioElement?.play()
-            .then(() => markSuccess())
+          audio
+            .play()
+            .then(() => finish(true))
             .catch(() => {
-              markFailed();
+              triggerDirectFallback();
             });
         });
 
         hls.on(Hls.Events.ERROR, (_event, data) => {
           if (data.fatal) {
             console.warn('HLS fatal error:', data.type, data.details);
-            switch (data.type) {
-              case Hls.ErrorTypes.NETWORK_ERROR:
-                if (this.status === 'playing') {
-                  this.handlePlaybackFailure();
-                } else {
-                  // Attempt native fallback before failing
-                  hls.destroy();
-                  this.hls = null;
-                  tryNativeAudio(url);
-                }
-                break;
-              case Hls.ErrorTypes.MEDIA_ERROR:
-                hls.recoverMediaError();
-                break;
-              default:
-                hls.destroy();
-                this.hls = null;
-                if (this.status === 'playing') {
-                  this.handlePlaybackFailure();
-                } else {
-                  tryNativeAudio(url);
-                }
-                break;
+            if (this.status === 'playing' && this.playbackStarted) {
+              this.handleStreamDrop();
+            } else {
+              // إظهار رسالة الخطأ فوراً
+              this.handleChannelUnavailable('القناة غير متاحة');
+              finish(false);
             }
           }
         });
-      } else {
-        // Direct audio/video stream or Native Android HLS playback via HTML5 Audio
-        tryNativeAudio(url);
+      } catch (err) {
+        console.warn('HLS initialization error:', err);
+        this.playDirectAudio(url).then(finish);
       }
     });
   }
 
-  private handleInitialLoadError() {
-    this.setStatus('idle');
-    const failedChannel = this.activeChannel;
-    this.activeChannel = null;
-    this.callbacks?.onActiveChannelChange(null);
-    this.clearMediaSession();
-    this.releaseAudioFocus();
+  /**
+   * Direct HTML5 Audio Element playback:
+   * - Assigns audio.src = url directly
+   * - No crossOrigin, no fetch checks, no custom headers
+   * - Calls audio.load() then audio.play() directly
+   * - preload="none" delegates streaming directly to the OS layer
+   * - Error triggers "القناة غير متاحة" immediately
+   */
+  private playDirectAudio(url: string): Promise<boolean> {
+    const audio = this.getOrCreateAudioElement();
 
-    // رسالة واضحة: "القناة دي مش متاحة دلوقتي"
-    this.callbacks?.onErrorToast(
-      failedChannel ? `القناة دي مش متاحة دلوقتي (${failedChannel.name})` : 'القناة دي مش متاحة دلوقتي'
-    );
+    return new Promise((resolve) => {
+      let resolved = false;
+
+      const finish = (success: boolean) => {
+        if (!resolved) {
+          resolved = true;
+          if (success) {
+            this.markPlaybackStarted();
+          }
+          resolve(success);
+        }
+      };
+
+      try {
+        audio.preload = 'none';
+        audio.removeAttribute('crossOrigin');
+        audio.src = url;
+        audio.load();
+
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              finish(true);
+            })
+            .catch((err) => {
+              console.warn('Direct audio play error:', err);
+              if (this.status === 'loading') {
+                this.handleChannelUnavailable('القناة غير متاحة');
+              }
+              finish(false);
+            });
+        } else {
+          finish(true);
+        }
+      } catch (err) {
+        console.warn('Direct audio exception:', err);
+        if (this.status === 'loading') {
+          this.handleChannelUnavailable('القناة غير متاحة');
+        }
+        finish(false);
+      }
+    });
   }
 
   /**
-   * 4. أثناء التشغيل - مراقبة الاتصال وإعادة المحاولة
-   * محاولة 1: بعد ثانيتين
-   * محاولة 2: بعد أربع ثواني
-   * محاولة 3: بعد ست ثواني
-   * لو الثلاث فشلوا -> يوقف، يشيل علامة ▶، رسالة "انقطع الاتصال بالقناة"
+   * Reconnect on sudden stream drops during active playback (only for active streams)
    */
-  private handlePlaybackFailure() {
-    if (this.isUserInitiatedStop || !this.activeChannel) return;
+  private handleStreamDrop() {
+    if (this.isUserInitiatedStop || !this.activeChannel || !this.playbackStarted) return;
 
-    // Start / Continue Retry Sequence
     if (this.retryCount < RETRY_DELAYS.length) {
       const delay = RETRY_DELAYS[this.retryCount];
       const attemptNumber = this.retryCount + 1;
@@ -419,35 +668,25 @@ class PlayerEngine {
         if (this.isUserInitiatedStop || !this.activeChannel) return;
 
         console.log(`Reconnecting attempt ${attemptNumber}...`);
-        const ok = await this.loadStreamSource(this.activeChannel.url);
+        this.stopPreviousStream();
+        const ok = await this.startPlayback(this.activeChannel.url);
         if (ok) {
-          // لو أي محاولة نجحت -> يكمّل عادي من غير ما يزعج المستخدم برسائل
           this.isReconnecting = false;
           this.retryCount = 0;
           this.notifyRetryState({ attempt: 0, maxAttempts: 3, delaySeconds: 0, active: false });
           this.setStatus('playing');
         } else {
-          // If still failing, recurse to next retry
-          this.handlePlaybackFailure();
+          this.handleStreamDrop();
         }
       }, delay);
     } else {
-      // لو الثلاث محاولات فشلوا:
-      // يوقف، يشيل علامة ▶، رسالة "انقطع الاتصال بالقناة"
       this.clearRetryTimer();
-      this.activeChannel = null;
-      this.callbacks?.onActiveChannelChange(null);
-      this.stopInternal(true);
+      this.isReconnecting = false;
       this.setStatus('idle');
-      this.callbacks?.onErrorToast('انقطع الاتصال بالقناة');
+      this.callbacks?.onErrorToast('انقطع البث المباشر');
     }
   }
 
-  /**
-   * 5. عند الضغط على Play/Pause
-   * - لو شغال → pause (الصوت يوقف، الاتصال يفضل مفتوح)
-   * - لو متوقف بـ pause → يكمّل من نفس المكان
-   */
   public togglePlayPause() {
     if (!this.activeChannel) return;
 
@@ -461,6 +700,11 @@ class PlayerEngine {
   }
 
   public pause() {
+    this.isUserInitiatedStop = true;
+    if (this.loadTimeoutId) {
+      clearTimeout(this.loadTimeoutId);
+      this.loadTimeoutId = null;
+    }
     if (this.audioElement) {
       this.audioElement.pause();
       this.setStatus('paused');
@@ -469,34 +713,30 @@ class PlayerEngine {
   }
 
   public resume() {
+    this.isUserInitiatedStop = false;
     if (this.audioElement && this.activeChannel) {
       this.requestAudioFocus().then(() => {
-        this.audioElement?.play()
+        this.enforceExclusiveAudioFocus();
+        this.acquireWakeLock();
+        this.audioElement
+          ?.play()
           .then(() => {
-            this.setStatus('playing');
-            this.updateMediaSessionPlaybackState('playing');
+            this.markPlaybackStarted();
           })
           .catch(() => {
-            this.handlePlaybackFailure();
+            this.handleStreamDrop();
           });
       });
     }
   }
 
-  /**
-   * 8. عند إيقاف القناة أو إغلاق التطبيق نهائياً
-   * - يوقف التشغيل (stop)
-   * - يسيب Audio Focus
-   * - يقفل الإشعار
-   * - يقفل الـ Service
-   * - "آخر قناة شغالة" تتمسح
-   */
   public stop(clearSavedLastChannel = true) {
     this.isUserInitiatedStop = true;
     this.clearRetryTimer();
-    this.clearPlayTimeout();
 
-    this.stopInternal(true);
+    this.stopPreviousStream();
+    this.releaseAudioFocus();
+    this.clearMediaSession();
 
     this.activeChannel = null;
     this.callbacks?.onActiveChannelChange(null);
@@ -508,23 +748,6 @@ class PlayerEngine {
       } catch (e) {
         console.warn('Failed to remove last played channel', e);
       }
-    }
-  }
-
-  private stopInternal(fullCleanup: boolean) {
-    if (this.audioElement) {
-      this.audioElement.pause();
-      this.audioElement.src = '';
-    }
-
-    if (this.hls) {
-      this.hls.destroy();
-      this.hls = null;
-    }
-
-    if (fullCleanup) {
-      this.releaseAudioFocus();
-      this.clearMediaSession();
     }
   }
 }

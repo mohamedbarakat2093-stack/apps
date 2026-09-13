@@ -6,9 +6,12 @@ interface ChannelListProps {
   channels: Channel[];
   activeChannel: Channel | null;
   status: PlayerStatus;
+  title?: string;
+  activeView?: 'audio_channels' | 'preset';
   onSelectChannel: (channel: Channel) => void;
   onDeleteChannel: (channelId: string, e: React.MouseEvent) => void;
   onClearAllChannels: () => void;
+  onUploadNewFile?: () => void;
 }
 
 const ITEMS_PER_PAGE = 40; // خفيف وسريع على رامات ومعالج الرسيفر
@@ -17,9 +20,12 @@ export const ChannelList: React.FC<ChannelListProps> = ({
   channels,
   activeChannel,
   status,
+  title,
+  activeView,
   onSelectChannel,
   onDeleteChannel,
   onClearAllChannels,
+  onUploadNewFile,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGroup, setSelectedGroup] = useState<string>('all');
@@ -183,15 +189,28 @@ export const ChannelList: React.FC<ChannelListProps> = ({
         id="empty-channel-list"
         className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-12 text-center flex flex-col items-center justify-center space-y-4"
       >
-        <div className="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-slate-500">
+        <div className="w-16 h-16 rounded-2xl bg-blue-950/60 border border-blue-800/60 flex items-center justify-center text-blue-400 shadow-inner">
           <Tv className="w-8 h-8" />
         </div>
-        <div className="space-y-1 max-w-md">
-          <h3 className="text-lg font-bold text-slate-300">لا توجد قنوات محمّلة حالياً</h3>
+        <div className="space-y-2 max-w-md">
+          <h3 className="text-lg font-bold text-slate-200">
+            {activeView === 'audio_channels' ? 'لا توجد ملفات قنوات صوتية حتى الآن' : 'لا توجد قنوات محمّلة حالياً'}
+          </h3>
           <p className="text-sm text-slate-400">
-            اضغط على زر <span className="text-blue-400 font-semibold">"إضافة ملف (M3U / CFG / TXT)"</span> أو زر <span className="text-emerald-400 font-semibold">"إضافة قناة صوتية"</span> لإضافة قنوات والتأكد منها فورياً.
+            {activeView === 'audio_channels'
+              ? 'يمكنك رفع ملف أو أكثر (M3U, CFG, TXT) لتنزيل جميع القنوات في هذه الخانة وتشغيلها بسهولة وبأعلى جودة.'
+              : 'اضغط على أحد أزرار الراديو الجاهزة أو اضغط على "القنوات الصوتية" لرفع ملفاتك الخاصة.'}
           </p>
         </div>
+        {onUploadNewFile && (
+          <button
+            type="button"
+            onClick={onUploadNewFile}
+            className="tv-focusable px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-sm shadow-md shadow-blue-600/30 cursor-pointer"
+          >
+            رفع ملف قنوات (M3U / CFG / TXT)
+          </button>
+        )}
       </div>
     );
   }
@@ -246,7 +265,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
           <div className="flex items-center gap-2">
             <Radio className="w-5 h-5 text-blue-400" />
             <h2 className="text-base font-bold text-slate-100">
-              قائمة القنوات ({channels.length})
+              {title || 'قائمة القنوات'} ({channels.length})
             </h2>
             {filteredChannels.length !== channels.length && (
               <span className="text-xs text-slate-400 font-mono bg-slate-800 px-2 py-0.5 rounded-md">
@@ -420,11 +439,18 @@ export const ChannelList: React.FC<ChannelListProps> = ({
                       </span>
                     )}
                   </div>
-                  {channel.group && (
-                    <p className="text-[11px] text-slate-400 truncate mt-0.5">
-                      {channel.group}
-                    </p>
-                  )}
+                  <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                    {channel.group && (
+                      <p className="text-[11px] text-slate-400 truncate">
+                        {channel.group}
+                      </p>
+                    )}
+                    {channel.sourceFileName && (
+                      <span className="text-[10px] text-blue-300 font-medium bg-blue-950/70 border border-blue-800/60 px-1.5 py-0.2 rounded">
+                        {channel.sourceFileName}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 

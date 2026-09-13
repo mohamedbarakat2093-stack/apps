@@ -109,7 +109,16 @@ export const AddCustomChannelModal: React.FC<AddCustomChannelModalProps> = ({
           <div>
             <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center justify-between">
               <span>رابط البث الصوتي (URL):</span>
-              <span className="text-[10px] text-slate-500 font-normal">m3u8, mp3, aac, ogg, stream</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setUrl('http://audio.megashare.store/live6');
+                  if (!name) setName('قناة صوتية Live 6');
+                }}
+                className="text-[10px] text-orange-400 hover:text-orange-300 underline cursor-pointer"
+              >
+                تجربة رابط البث (Live 6)
+              </button>
             </label>
             <div className="relative">
               <LinkIcon className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -120,7 +129,7 @@ export const AddCustomChannelModal: React.FC<AddCustomChannelModalProps> = ({
                 dir="ltr"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://example.com/stream.mp3"
+                placeholder="http://audio.megashare.store/live6"
                 className="w-full pr-3.5 pl-9 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono text-left"
               />
             </div>

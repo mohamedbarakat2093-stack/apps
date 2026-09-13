@@ -4,17 +4,42 @@ import { ForegroundNotification } from './components/ForegroundNotification';
 import { ChannelList } from './components/ChannelList';
 import { HiddenScreenOverlay } from './components/HiddenScreenOverlay';
 import { AddCustomChannelModal } from './components/AddCustomChannelModal';
-import { parsePlaylistFile, DEFAULT_SAMPLE_M3U } from './utils/m3uParser';
+import { PresetPlaylistsBar } from './components/PresetPlaylistsBar';
+import { parsePlaylistFile } from './utils/m3uParser';
 import { playerEngine } from './services/playerService';
-import { Channel, PlayerStatus, RetryState, StoredPlaylist } from './types';
-import { AlertCircle, CheckCircle2, Info, Radio, Sparkles, Tv, FileText } from 'lucide-react';
+import {
+  EGYPTIAN_RADIO_PRESET,
+  QURAN_RECITERS_PRESET,
+  EGYPTIAN_SINGERS_PRESET,
+  PresetPlaylist,
+} from './data/presetPlaylists';
+import { Channel, PlayerStatus, RetryState, ActiveView } from './types';
+import { AlertCircle, CheckCircle2, Info, Radio, Sparkles } from 'lucide-react';
 
-const STORAGE_PLAYLIST_KEY = 'm3u_playlist_cache';
-const STORAGE_LAST_CHANNEL_KEY = 'm3u_last_played_channel';
+const STORAGE_USER_AUDIO_CHANNELS_KEY = 'm3u_user_audio_channels';
+const STORAGE_USER_FILES_KEY = 'm3u_user_files_list';
+const STORAGE_LAST_PLAYED_KEY = 'm3u_last_played_channel';
+const STORAGE_ACTIVE_VIEW_KEY = 'm3u_active_view';
+const STORAGE_ACTIVE_PRESET_KEY = 'm3u_active_preset_id';
+
+interface UploadedFileRecord {
+  id: string;
+  name: string;
+  count: number;
+  uploadedAt: number;
+}
 
 export default function App() {
-  const [channels, setChannels] = useState<Channel[]>([]);
-  const [savedPlaylist, setSavedPlaylist] = useState<StoredPlaylist | null>(null);
+  // Navigation / View state
+  const [activeView, setActiveView] = useState<ActiveView>('preset');
+  const [activePresetId, setActivePresetId] = useState<string>(EGYPTIAN_RADIO_PRESET.id);
+
+  // Channels state
+  const [uploadedChannels, setUploadedChannels] = useState<Channel[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFileRecord[]>([]);
+  const [presetChannels, setPresetChannels] = useState<Channel[]>(EGYPTIAN_RADIO_PRESET.channels);
+
+  // Player state
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
   const [playerStatus, setPlayerStatus] = useState<PlayerStatus>('idle');
   const [retryState, setRetryState] = useState<RetryState>({
@@ -23,6 +48,8 @@ export default function App() {
     delaySeconds: 0,
     active: false,
   });
+
+  // UI state
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'error' | 'success' | 'info' } | null>(null);
   const [isHiddenScreen, setIsHiddenScreen] = useState<boolean>(false);
   const [autoplayBlockedChannel, setAutoplayBlockedChannel] = useState<Channel | null>(null);
@@ -36,16 +63,16 @@ export default function App() {
       clearTimeout(toastTimeoutRef.current);
     }
     setToastMessage({ text, type });
+    // رسالة الخطأ أو "القناة مش شغالة" لا تبقى أكثر من نصف ثانية (500ms) حسب طلب المستخدم
+    const duration = type === 'error' ? 500 : 2500;
     toastTimeoutRef.current = setTimeout(() => {
       setToastMessage(null);
-    }, 4500);
+    }, duration);
   }, []);
 
-  // 1. عند فتح التطبيق:
-  // - يتحقق: هل فيه ملف محفوظ من قبل؟ يقرأه ويملأ القائمة
-  // - يتحقق: هل فيه "آخر قناة" كانت شغالة قبل الإغلاق؟ يشغلها
+  // 1. التهيئة الأولية واستعادة البيانات المحفوظة
   useEffect(() => {
-    // Setup player callbacks
+    // إعداد مستمعات محرك تشغيل الصوت Hls.js
     playerEngine.setCallbacks({
       onStatusChange: (status) => setPlayerStatus(status),
       onActiveChannelChange: (channel) => setActiveChannel(channel),
@@ -53,33 +80,64 @@ export default function App() {
       onErrorToast: (msg) => showToast(msg, 'error'),
     });
 
-    let loadedChannels: Channel[] = [];
-
-    // التحقق من ملف محفوظ من قبل
+    // استعادة ملفات وقنوات المستخدم المرفوعة
     try {
-      const cached = localStorage.getItem(STORAGE_PLAYLIST_KEY);
-      if (cached) {
-        const parsed: StoredPlaylist = JSON.parse(cached);
-        if (parsed && Array.isArray(parsed.channels) && parsed.channels.length > 0) {
-          setChannels(parsed.channels);
-          setSavedPlaylist(parsed);
-          loadedChannels = parsed.channels;
+      const storedAudioChannels = localStorage.getItem(STORAGE_USER_AUDIO_CHANNELS_KEY);
+      if (storedAudioChannels) {
+        const parsed: Channel[] = JSON.parse(storedAudioChannels);
+        if (Array.isArray(parsed)) {
+          setUploadedChannels(parsed);
         }
       }
-    } catch (e) {
-      console.warn('Error reading playlist from cache:', e);
+
+      const storedFiles = localStorage.getItem(STORAGE_USER_FILES_KEY);
+      if (storedFiles) {
+        const parsedFiles: UploadedFileRecord[] = JSON.parse(storedFiles);
+        if (Array.isArray(parsedFiles)) {
+          setUploadedFiles(parsedFiles);
+        }
+      }
+
+      const savedView = localStorage.getItem(STORAGE_ACTIVE_VIEW_KEY) as ActiveView | null;
+      if (savedView === 'audio_channels') {
+        setActiveView('audio_channels');
+      }
+
+      const savedPresetId = localStorage.getItem(STORAGE_ACTIVE_PRESET_KEY);
+      if (savedPresetId) {
+        const matchingPreset = [EGYPTIAN_RADIO_PRESET, QURAN_RECITERS_PRESET, EGYPTIAN_SINGERS_PRESET].find(
+          (p) => p.id === savedPresetId
+        );
+        if (matchingPreset) {
+          setActivePresetId(matchingPreset.id);
+          setPresetChannels(matchingPreset.channels);
+        }
+      }
+    } catch (err) {
+      console.warn('Error restoring cache:', err);
     }
 
-    // التحقق من آخر قناة كانت شغالة
+    // استئناف آخر قناة كانت شغالة وتأكيد كتم الأصوات الأخرى
     try {
-      const lastPlayedStr = localStorage.getItem(STORAGE_LAST_CHANNEL_KEY);
+      const lastPlayedStr = localStorage.getItem(STORAGE_LAST_PLAYED_KEY);
       if (lastPlayedStr) {
-        const lastChannel: Channel = JSON.parse(lastPlayedStr);
+        let lastChannel: Channel = JSON.parse(lastPlayedStr);
+        // تحديث رابط القناة تلقائياً من القوائم الحديثة في حال كانت مسجلة برابط قديم
+        const allCurrentPresets = [EGYPTIAN_RADIO_PRESET, QURAN_RECITERS_PRESET, EGYPTIAN_SINGERS_PRESET];
+        for (const preset of allCurrentPresets) {
+          const fresh = preset.channels.find((c) => c.id === lastChannel.id || c.name === lastChannel.name);
+          if (fresh) {
+            lastChannel = { ...lastChannel, url: fresh.url };
+            localStorage.setItem(STORAGE_LAST_PLAYED_KEY, JSON.stringify(lastChannel));
+            break;
+          }
+        }
+
         if (lastChannel && lastChannel.url) {
           playerEngine.playChannel(lastChannel, true)
             .then((played) => {
               if (played) {
-                showToast(`تم استئناف تشغيل آخر قناة: "${lastChannel.name}"`, 'success');
+                showToast(`تم استئناف تشغيل: "${lastChannel.name}"`, 'success');
               } else {
                 setAutoplayBlockedChannel(lastChannel);
               }
@@ -93,14 +151,13 @@ export default function App() {
       console.warn('Error checking last played channel:', e);
     }
 
-    // 7. عند الضغط على Home أو مفاتيح الريموت في Android TV / Box
-    // إخفاء الشاشة مع استمرار البث والصوت في الخلفية (نفس سلوك شاشات الرسيفر)
-    const handleRemoteHomeKey = (e: KeyboardEvent) => {
+    // دعم مفتاح Home وأزرار ريموت الرسيفر والشاشات
+    const handleRemoteKeys = (e: KeyboardEvent) => {
       const isHome =
         e.key === 'Home' ||
         e.code === 'Home' ||
         e.keyCode === 36 ||
-        e.keyCode === 3 || // KEYCODE_HOME
+        e.keyCode === 3 ||
         e.key === 'BrowserHome' ||
         e.key === 'GoHome';
 
@@ -110,13 +167,31 @@ export default function App() {
       }
     };
 
-    window.addEventListener('keydown', handleRemoteHomeKey);
+    window.addEventListener('keydown', handleRemoteKeys);
     return () => {
-      window.removeEventListener('keydown', handleRemoteHomeKey);
+      window.removeEventListener('keydown', handleRemoteKeys);
     };
   }, [showToast]);
 
-  // 2. عند الضغط على "إضافة ملف (M3U / CFG / TXT)"
+  // الضغط على زر "القنوات الصوتية": يعرض قنوات ملفات المستخدم المرفوعة
+  const handleSelectAudioChannelsView = () => {
+    setActiveView('audio_channels');
+    try {
+      localStorage.setItem(STORAGE_ACTIVE_VIEW_KEY, 'audio_channels');
+    } catch (e) {
+      // ignore
+    }
+
+    // إذا لم تكن هناك أي ملفات مرفوعة بعد، نفتح نافذة الرفع فوراً للمساعدة
+    if (uploadedChannels.length === 0) {
+      handleLoadNewFileClick();
+      showToast('قم برفع ملفك الأول (M3U, CFG, TXT) لتنزيل قنواته في القنوات الصوتية', 'info');
+    } else {
+      showToast(`تم فتح خانة القنوات الصوتية (${uploadedChannels.length} قناة)`, 'info');
+    }
+  };
+
+  // فتح نافذة اختيار الملفات
   const handleLoadNewFileClick = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -124,6 +199,7 @@ export default function App() {
     }
   };
 
+  // معالجة رفع ملف جديد: تنزل جميع قنواته في خانة "القنوات الصوتية" حصراً
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -131,183 +207,153 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = (event) => {
       const content = event.target?.result as string;
-      processPlaylistContent(content, file.name);
+      processUploadedFile(content, file.name);
     };
 
     reader.onerror = () => {
-      showToast('تعذر قراءة الملف من الذاكرة', 'error');
+      showToast('تعذر قراءة محتوى الملف من الجهاز', 'error');
     };
 
-    // قراءة الملف كنص مع دعم UTF-8
     reader.readAsText(file, 'UTF-8');
   };
 
-  // 2. عند الضغط على "تحديث القائمة"
-  const handleRefreshList = () => {
-    if (!savedPlaylist || !savedPlaylist.rawContent) {
-      showToast('لا يوجد ملف محفوظ لتحديثه', 'error');
-      return;
-    }
-
-    processPlaylistContent(savedPlaylist.rawContent, savedPlaylist.fileName, true);
-  };
-
-  // معالجة محتوى الملف واستخراج القنوات وتشغيل أول قناة للتأكد منها فورياً
-  const processPlaylistContent = (content: string, fileName: string, isRefresh = false) => {
+  // معالجة وحفظ الملفات المرفوعة في خانة "القنوات الصوتية"
+  const processUploadedFile = (content: string, fileName: string) => {
     const result = parsePlaylistFile(content, fileName);
 
     if (!result.success || result.channels.length === 0) {
-      showToast(result.error || 'الملف لا يحتوي على روابط قنوات صالحة', 'error');
+      showToast(result.error || 'الملف لا يحتوي على روابط قنوات صالحة للتشغيل', 'error');
       return;
     }
 
-    if (isRefresh) {
-      const playlistData: StoredPlaylist = {
-        fileName,
-        rawContent: content,
-        channels: result.channels,
-        savedAt: Date.now(),
-      };
-      try {
-        localStorage.setItem(STORAGE_PLAYLIST_KEY, JSON.stringify(playlistData));
-      } catch (err) {
-        console.warn('Could not save to localStorage:', err);
-      }
-      setChannels(result.channels);
-      setSavedPlaylist(playlistData);
-      showToast(`تم تحديث القائمة بنجاح (${result.channels.length} قناة)`, 'success');
-      return;
-    }
+    // وسم القنوات بالملف والمصدر
+    const taggedChannels: Channel[] = result.channels.map((ch, idx) => ({
+      ...ch,
+      id: ch.id || `upload_${Date.now()}_${idx}`,
+      origin: 'user_upload',
+      sourceFileName: fileName,
+    }));
 
-    // الدمج والتركيب على القنوات القديمة
-    setChannels((prevChannels) => {
-      const existingUrls = new Set(prevChannels.map((c) => c.url));
-      const newUniqueChannels = result.channels.filter((c) => !existingUrls.has(c.url));
-      const merged = [...prevChannels, ...newUniqueChannels];
-
-      const playlistData: StoredPlaylist = {
-        fileName: prevChannels.length > 0 ? `${savedPlaylist?.fileName || 'قائمة'} + ${fileName}` : fileName,
-        rawContent: prevChannels.length > 0 ? `${savedPlaylist?.rawContent || ''}\n${content}` : content,
-        channels: merged,
-        savedAt: Date.now(),
-      };
+    // دمج القنوات في خانة "القنوات الصوتية" فقط مع منع التكرار برابط البث
+    setUploadedChannels((prev) => {
+      const existingUrls = new Set(prev.map((c) => c.url));
+      const newChannels = taggedChannels.filter((c) => !existingUrls.has(c.url));
+      const merged = [...prev, ...newChannels];
 
       try {
-        localStorage.setItem(STORAGE_PLAYLIST_KEY, JSON.stringify(playlistData));
+        localStorage.setItem(STORAGE_USER_AUDIO_CHANNELS_KEY, JSON.stringify(merged));
       } catch (err) {
-        console.warn('Could not save to localStorage:', err);
+        console.warn('Error caching user channels:', err);
       }
 
-      setSavedPlaylist(playlistData);
+      // إضافة اسم الملف لسجل الملفات
+      const newRecord: UploadedFileRecord = {
+        id: `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        name: fileName,
+        count: newChannels.length,
+        uploadedAt: Date.now(),
+      };
 
-      const addedCount = newUniqueChannels.length;
+      setUploadedFiles((prevFiles) => {
+        const updatedFiles = [newRecord, ...prevFiles.filter((f) => f.name !== fileName)];
+        try {
+          localStorage.setItem(STORAGE_USER_FILES_KEY, JSON.stringify(updatedFiles));
+        } catch (e) {
+          // ignore
+        }
+        return updatedFiles;
+      });
+
+      // التحويل التلقائي لخانة "القنوات الصوتية"
+      setActiveView('audio_channels');
+      try {
+        localStorage.setItem(STORAGE_ACTIVE_VIEW_KEY, 'audio_channels');
+      } catch (e) {
+        // ignore
+      }
+
       showToast(
-        prevChannels.length > 0
-          ? `تم دمج ${addedCount} قناة جديدة (إجمالي القنوات الآن: ${merged.length})`
-          : `تم تحميل ${merged.length} قناة من "${fileName}" بنجاح`,
+        `تمت إضافة ${newChannels.length} قناة من "${fileName}" بنجاح إلى خانة القنوات الصوتية`,
         'success'
       );
 
-      // تشغيل أول قناة جديدة فوراً لتجربتها والتأكد منها مباشرة
-      const channelToAutoTest = newUniqueChannels.length > 0 ? newUniqueChannels[0] : merged[0];
-      if (channelToAutoTest) {
+      // تشغيل أول قناة للتأكد منها فورياً بمحرك التشغيل
+      const firstChannel = newChannels.length > 0 ? newChannels[0] : merged[0];
+      if (firstChannel) {
         setTimeout(() => {
-          handleSelectChannel(channelToAutoTest);
-          showToast(`جاري تشغيل قناة "${channelToAutoTest.name}" للتأكد منها...`, 'info');
-        }, 300);
+          handleSelectChannel(firstChannel);
+          showToast(`جاري تشغيل: "${firstChannel.name}"...`, 'info');
+        }, 200);
       }
 
       return merged;
     });
   };
 
-  // إضافة قناة صوتية مخصصة يدوياً وتجربتها
-  const handleAddCustomChannel = (newChannel: Channel) => {
-    setChannels((prevChannels) => {
-      const merged = [...prevChannels, newChannel];
+  // عند الضغط على أي من باقات الراديو: تظهر قنواتها في القائمة
+  const handleLoadPreset = (preset: PresetPlaylist) => {
+    setActiveView('preset');
+    setActivePresetId(preset.id);
+    setPresetChannels(preset.channels);
 
-      const playlistData: StoredPlaylist = {
-        fileName: savedPlaylist?.fileName || 'قائمة قنوات مخصصة',
-        rawContent: `${savedPlaylist?.rawContent || ''}\n#EXTINF:-1 group-title="${newChannel.group || ''}",${newChannel.name}\n${newChannel.url}`,
-        channels: merged,
-        savedAt: Date.now(),
-      };
-
-      try {
-        localStorage.setItem(STORAGE_PLAYLIST_KEY, JSON.stringify(playlistData));
-      } catch (e) {
-        console.warn('Failed to save custom channel to storage:', e);
-      }
-
-      setSavedPlaylist(playlistData);
-      showToast(`تمت إضافة قناة "${newChannel.name}" برقم #${merged.length} بنجاح`, 'success');
-
-      // تشغيل القناة المضافة مباشرة لتجربتها
-      setTimeout(() => {
-        handleSelectChannel(newChannel);
-      }, 100);
-
-      return merged;
-    });
-  };
-
-  // حذف قناة معينة من القائمة
-  const handleDeleteChannel = (channelId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setChannels((prev) => {
-      const target = prev.find((c) => c.id === channelId);
-      const updated = prev.filter((c) => c.id !== channelId);
-
-      if (activeChannel?.id === channelId) {
-        playerEngine.stop(true);
-      }
-
-      if (savedPlaylist) {
-        const updatedPlaylist = {
-          ...savedPlaylist,
-          channels: updated,
-        };
-        try {
-          localStorage.setItem(STORAGE_PLAYLIST_KEY, JSON.stringify(updatedPlaylist));
-        } catch (err) {
-          console.warn('Failed to update storage after channel deletion', err);
-        }
-        setSavedPlaylist(updatedPlaylist);
-      }
-
-      showToast(`تم حذف قناة "${target?.name || 'المحددة'}" من القائمة`, 'info');
-      return updated;
-    });
-  };
-
-  // تفريغ ومسح القائمة كاملة
-  const handleClearAllChannels = () => {
-    if (activeChannel) {
-      playerEngine.stop(true);
-    }
-    setChannels([]);
-    setSavedPlaylist(null);
     try {
-      localStorage.removeItem(STORAGE_PLAYLIST_KEY);
-      localStorage.removeItem(STORAGE_LAST_CHANNEL_KEY);
+      localStorage.setItem(STORAGE_ACTIVE_VIEW_KEY, 'preset');
+      localStorage.setItem(STORAGE_ACTIVE_PRESET_KEY, preset.id);
     } catch (e) {
-      console.warn('Failed to clear playlist storage', e);
+      // ignore
     }
-    showToast('تم مسح جميع القنوات وتفريغ القائمة بالكامل', 'info');
+
+    showToast(`تم فتح ${preset.title} (${preset.channels.length} قناة)`, 'success');
+
+    // تشغيل أول قناة في الباقة
+    if (preset.channels.length > 0) {
+      const firstChannel = preset.channels[0];
+      setTimeout(() => {
+        handleSelectChannel(firstChannel);
+      }, 150);
+    }
   };
 
-  // Quick load demo/sample M3U for instant testing
-  const handleLoadSampleM3U = () => {
-    processPlaylistContent(DEFAULT_SAMPLE_M3U, 'قائمة_إذاعات_وقنوات_تجريبية.m3u');
+  // إضافة قناة صوتية مخصصة برابط مباشر
+  const handleAddCustomChannel = (newChannel: Channel) => {
+    const channelWithMeta: Channel = {
+      ...newChannel,
+      origin: 'user_upload',
+      sourceFileName: 'قناة مخصصة',
+    };
+
+    setUploadedChannels((prev) => {
+      const merged = [...prev, channelWithMeta];
+      try {
+        localStorage.setItem(STORAGE_USER_AUDIO_CHANNELS_KEY, JSON.stringify(merged));
+      } catch (e) {
+        // ignore
+      }
+      return merged;
+    });
+
+    setActiveView('audio_channels');
+    try {
+      localStorage.setItem(STORAGE_ACTIVE_VIEW_KEY, 'audio_channels');
+    } catch (e) {
+      // ignore
+    }
+
+    showToast(`تمت إضافة قناة "${channelWithMeta.name}" إلى القنوات الصوتية`, 'success');
+
+    setTimeout(() => {
+      handleSelectChannel(channelWithMeta);
+    }, 150);
   };
 
-  // 3. عند الضغط على قناة من القائمة
+  // اختيار قناة والتشغيل
   const handleSelectChannel = (channel: Channel) => {
     setAutoplayBlockedChannel(null);
+    playerEngine.enforceExclusiveAudioFocus();
     playerEngine.playChannel(channel);
   };
 
-  // 5. عند الضغط على Play/Pause
+  // Play / Pause
   const handleTogglePlayPause = () => {
     if (autoplayBlockedChannel) {
       const ch = autoplayBlockedChannel;
@@ -318,25 +364,102 @@ export default function App() {
     playerEngine.togglePlayPause();
   };
 
-  // 6. عند الضغط على Hide
+  // إخفاء الشاشة مع استمرار الصوت في الخلفية
   const handleHideScreen = () => {
     setIsHiddenScreen(true);
+    playerEngine.maintainBackgroundPlayback();
   };
 
   const handleRestoreScreen = () => {
     setIsHiddenScreen(false);
   };
 
-  // 8. عند إيقاف القناة
+  // إيقاف التشغيل كلياً
   const handleStop = () => {
     playerEngine.stop(true);
     setAutoplayBlockedChannel(null);
     showToast('تم إيقاف القناة وإغلاق الخدمة', 'info');
   };
 
+  // حذف قناة من القائمة
+  const handleDeleteChannel = (channelId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (activeView === 'audio_channels') {
+      setUploadedChannels((prev) => {
+        const target = prev.find((c) => c.id === channelId);
+        const updated = prev.filter((c) => c.id !== channelId);
+        if (activeChannel?.id === channelId) {
+          playerEngine.stop(true);
+        }
+        try {
+          localStorage.setItem(STORAGE_USER_AUDIO_CHANNELS_KEY, JSON.stringify(updated));
+        } catch (e) {
+          // ignore
+        }
+        showToast(`تم حذف قناة "${target?.name || 'المحددة'}" من القنوات الصوتية`, 'info');
+        return updated;
+      });
+    } else {
+      setPresetChannels((prev) => {
+        const target = prev.find((c) => c.id === channelId);
+        const updated = prev.filter((c) => c.id !== channelId);
+        if (activeChannel?.id === channelId) {
+          playerEngine.stop(true);
+        }
+        showToast(`تم حذف قناة "${target?.name || 'المحددة'}" مؤقتاً`, 'info');
+        return updated;
+      });
+    }
+  };
+
+  // تفريغ القائمة
+  const handleClearAllChannels = () => {
+    if (activeChannel) {
+      playerEngine.stop(true);
+    }
+    if (activeView === 'audio_channels') {
+      setUploadedChannels([]);
+      setUploadedFiles([]);
+      try {
+        localStorage.removeItem(STORAGE_USER_AUDIO_CHANNELS_KEY);
+        localStorage.removeItem(STORAGE_USER_FILES_KEY);
+      } catch (e) {
+        // ignore
+      }
+      showToast('تم تفريغ خانة القنوات الصوتية بالكامل', 'info');
+    } else {
+      setPresetChannels([]);
+      showToast('تم مسح قنوات الباقة الحالية', 'info');
+    }
+  };
+
+  // تحديث القائمة
+  const handleRefreshList = () => {
+    if (activeView === 'audio_channels') {
+      showToast(`القنوات الصوتية محدثة (${uploadedChannels.length} قناة من ${uploadedFiles.length} ملف)`, 'success');
+    } else {
+      const matchingPreset = [EGYPTIAN_RADIO_PRESET, QURAN_RECITERS_PRESET, EGYPTIAN_SINGERS_PRESET].find(
+        (p) => p.id === activePresetId
+      );
+      if (matchingPreset) {
+        setPresetChannels(matchingPreset.channels);
+        showToast(`تمت استعادة قنوات "${matchingPreset.title}"`, 'success');
+      }
+    }
+  };
+
+  // القنوات المعروضة حالياً وفقاً للزر المضغوط
+  const currentChannels = activeView === 'audio_channels' ? uploadedChannels : presetChannels;
+  const currentTitle =
+    activeView === 'audio_channels'
+      ? 'القنوات الصوتية (ملفاتك المرفوعة)'
+      : [EGYPTIAN_RADIO_PRESET, QURAN_RECITERS_PRESET, EGYPTIAN_SINGERS_PRESET].find((p) => p.id === activePresetId)
+          ?.title || 'قائمة القنوات';
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-blue-600 selection:text-white">
-      {/* Hidden file picker input with multi-format support */}
+      {/* Hidden file picker for user uploads */}
       <input
         ref={fileInputRef}
         type="file"
@@ -346,7 +469,7 @@ export default function App() {
         className="hidden"
       />
 
-      {/* 6 & 7. Hidden Screen Overlay */}
+      {/* شاشة الإخفاء التام مع استمرار الصوت في الخلفية */}
       {isHiddenScreen && (
         <HiddenScreenOverlay
           activeChannel={activeChannel}
@@ -357,12 +480,12 @@ export default function App() {
         />
       )}
 
-      {/* Modal: إضافة قناة صوتية يدوياً */}
+      {/* Modal: إضافة قناة صوتية مخصصة */}
       <AddCustomChannelModal
         isOpen={isAddChannelModalOpen}
         onClose={() => setIsAddChannelModalOpen(false)}
         onAddChannel={handleAddCustomChannel}
-        nextChannelNumber={channels.length + 1}
+        nextChannelNumber={currentChannels.length + 1}
       />
 
       {/* Toast Alert */}
@@ -384,48 +507,51 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Container */}
+      {/* Main App Content */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 space-y-4">
         {/* App Bar / Header */}
         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-900 pb-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-emerald-600 flex items-center justify-center shadow-lg shadow-blue-600/20 text-white">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-emerald-600 flex items-center justify-center shadow-lg shadow-blue-600/20 text-white shrink-0">
               <Radio className="w-6 h-6" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-xl md:text-2xl font-black tracking-tight text-white">AudioCast</h1>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                  TV & Receiver Edition
-                </span>
+                {/* Created by placed to the left before Eng: Mohamed Barakat */}
+                <div
+                  id="header-author-badge"
+                  dir="ltr"
+                  className="flex items-center gap-1 px-3 py-1 rounded-xl bg-slate-900 border border-slate-800 text-xs shadow-inner"
+                >
+                  <span className="text-slate-400 font-medium">Created by :</span>
+                  <span className="text-blue-400 font-bold">Eng: Mohamed Barakat</span>
+                </div>
               </div>
             </div>
           </div>
-
-          {/* Quick load demo button if list empty */}
-          {channels.length === 0 && (
-            <button
-              id="btn-load-sample"
-              type="button"
-              onClick={handleLoadSampleM3U}
-              className="tv-focusable flex items-center gap-2 px-3.5 py-2 bg-indigo-950/60 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/50 rounded-xl text-xs font-bold transition-all cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-              <span>تحميل قائمة قنوات تجريبية جاهزة</span>
-            </button>
-          )}
         </header>
+
+        {/* أقسام وقوائم القنوات (زر القنوات الصوتية الخاص بالملفات المرفوعة + أزرار باقات الراديو) */}
+        <PresetPlaylistsBar
+          onLoadPreset={handleLoadPreset}
+          activePresetId={activePresetId}
+          onSelectAudioChannels={handleSelectAudioChannelsView}
+          onUploadNewFile={handleLoadNewFileClick}
+          uploadedChannelsCount={uploadedChannels.length}
+          isAudioChannelsActive={activeView === 'audio_channels'}
+        />
 
         {/* Autoplay resume prompt if browser blocked autoplay policy */}
         {autoplayBlockedChannel && !activeChannel && (
           <div
             id="autoplay-resume-banner"
-            className="bg-emerald-950/60 border border-emerald-500/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-emerald-200"
+            className="bg-emerald-950/60 border border-emerald-500/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-emerald-200 shadow-lg"
           >
             <div className="flex items-center gap-2">
               <Radio className="w-5 h-5 text-emerald-400 shrink-0" />
               <span>
-                تم العثور على آخر قناة كانت تعمل قبل الإغلاق: <strong className="text-white">{autoplayBlockedChannel.name}</strong>
+                آخر قناة كانت تعمل: <strong className="text-white">{autoplayBlockedChannel.name}</strong>
               </span>
             </div>
             <button
@@ -439,22 +565,24 @@ export default function App() {
           </div>
         )}
 
-        {/* 1. أدوات التحكم العلوية (Top Controls) */}
+        {/* أدوات التحكم (Controls) مع زر "القنوات الصوتية" */}
         <TopControls
+          onSelectAudioChannels={handleSelectAudioChannelsView}
           onLoadNewFile={handleLoadNewFileClick}
           onOpenAddChannelModal={() => setIsAddChannelModalOpen(true)}
           onRefreshList={handleRefreshList}
-          onTogglePlayPause={handleTogglePlayPause}
           onHideScreen={handleHideScreen}
-          onStop={handleStop}
-          hasChannels={channels.length > 0}
+          hasChannels={currentChannels.length > 0}
           activeChannelName={activeChannel ? activeChannel.name : null}
+          activeChannelUrl={activeChannel?.url}
           status={playerStatus}
-          hasSavedFile={!!savedPlaylist}
-          savedFileName={savedPlaylist?.fileName}
+          hasSavedFile={uploadedChannels.length > 0}
+          savedFileName={uploadedFiles[0]?.name}
+          isAudioChannelsActive={activeView === 'audio_channels'}
+          uploadedChannelsCount={uploadedChannels.length}
         />
 
-        {/* 3 & 5. Foreground Service & MediaSession System Notification */}
+        {/* خدمة Foreground Service وإشعار النظام ومفاتيح الميديا في الخلفية */}
         {activeChannel && (
           <ForegroundNotification
             channel={activeChannel}
@@ -480,25 +608,33 @@ export default function App() {
           </div>
         )}
 
-        {/* 1 & 3. قائمة القنوات تحت (Channels list below) */}
+        {/* قائمة القنوات (تظهر قنوات الباقة أو خانة القنوات الصوتية للملفات المرفوعة) */}
         <ChannelList
-          channels={channels}
+          channels={currentChannels}
           activeChannel={activeChannel}
           status={playerStatus}
+          title={currentTitle}
+          activeView={activeView}
           onSelectChannel={handleSelectChannel}
           onDeleteChannel={handleDeleteChannel}
           onClearAllChannels={handleClearAllChannels}
+          onUploadNewFile={handleLoadNewFileClick}
         />
       </main>
 
-      {/* Footer info & developer credits */}
-      <footer className="border-t border-slate-900 py-3.5 px-4 text-center text-xs text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-2 max-w-6xl mx-auto w-full">
-        <div>
-          AudioCast • مشغل قنوات وبثوث M3U, CFG, TXT (MediaSession Foreground Service)
-        </div>
-        <div className="flex items-center gap-1 text-slate-300 font-medium">
-          <span>Created by</span>
-          <span className="text-blue-400 font-bold">Eng: Mohamed Barakat</span>
+      {/* Footer: نقل Created by : Eng: Mohamed Barakat تحت على اليسار وحذف كل الكلام القديم */}
+      <footer className="border-t border-slate-900/80 py-4 px-6 max-w-6xl mx-auto w-full">
+        <div className="flex items-center justify-start">
+          <div
+            id="footer-created-by"
+            dir="ltr"
+            className="flex items-center gap-1.5 text-xs text-slate-400"
+          >
+            <span className="text-slate-500 font-medium">Created by :</span>
+            <span className="text-blue-400 font-bold hover:text-blue-300 transition-colors">
+              Eng: Mohamed Barakat
+            </span>
+          </div>
         </div>
       </footer>
     </div>

@@ -1,52 +1,74 @@
 import React from 'react';
-import { Upload, RefreshCw, Play, Pause, EyeOff, Square, Radio, Plus } from 'lucide-react';
+import { Upload, RefreshCw, EyeOff, Radio, Plus, FileAudio } from 'lucide-react';
 import { PlayerStatus } from '../types';
 
 interface TopControlsProps {
+  onSelectAudioChannels: () => void;
   onLoadNewFile: () => void;
   onOpenAddChannelModal: () => void;
   onRefreshList: () => void;
-  onTogglePlayPause: () => void;
   onHideScreen: () => void;
-  onStop: () => void;
   hasChannels: boolean;
   activeChannelName: string | null;
+  activeChannelUrl?: string;
   status: PlayerStatus;
   hasSavedFile: boolean;
   savedFileName?: string;
+  isAudioChannelsActive: boolean;
+  uploadedChannelsCount: number;
 }
 
 export const TopControls: React.FC<TopControlsProps> = ({
+  onSelectAudioChannels,
   onLoadNewFile,
   onOpenAddChannelModal,
   onRefreshList,
-  onTogglePlayPause,
   onHideScreen,
-  onStop,
-  hasChannels,
+  hasChannels: _hasChannels,
   activeChannelName,
+  activeChannelUrl: _activeChannelUrl,
   status,
   hasSavedFile,
   savedFileName,
+  isAudioChannelsActive,
+  uploadedChannelsCount,
 }) => {
-  const isPlayPauseDisabled = !activeChannelName || status === 'loading';
-  const isPlaying = status === 'playing';
-
   return (
     <div id="top-controls-container" className="bg-slate-900/95 border border-slate-800 rounded-2xl p-4 shadow-xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Main Action Buttons Grid */}
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* زرار إضافة ودمج ملف قنوات (M3U, CFG, TXT) */}
+          {/* زر القنوات الصوتية: يفتح قنوات الملفات المرفوعة من المستخدم */}
+          <button
+            id="btn-select-audio-channels"
+            type="button"
+            onClick={onSelectAudioChannels}
+            className={`tv-focusable flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all shadow-md cursor-pointer text-sm md:text-base border ${
+              isAudioChannelsActive
+                ? 'bg-blue-600 text-white border-blue-400 shadow-blue-600/40 ring-2 ring-blue-400'
+                : 'bg-blue-950/70 hover:bg-blue-900 text-blue-200 border-blue-700/60'
+            }`}
+            title="عرض القنوات الصوتية الخاصة بملفاتك المرفوعة"
+          >
+            <FileAudio className="w-4 h-4 text-blue-300" />
+            <span>القنوات الصوتية</span>
+            {uploadedChannelsCount > 0 && (
+              <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-blue-900/90 text-blue-200 border border-blue-500/40">
+                {uploadedChannelsCount}
+              </span>
+            )}
+          </button>
+
+          {/* زر رفع ملف قنوات صوتية جديد/إضافي */}
           <button
             id="btn-load-m3u"
             type="button"
             onClick={onLoadNewFile}
-            className="tv-focusable flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-xl font-bold transition-all shadow-md hover:shadow-blue-600/40 cursor-pointer text-sm md:text-base border border-blue-500/50"
-            title="إضافة ملف قنوات جديد (M3U, M3U8, CFG, TXT) ودمجه مع القنوات الحالية دون فقدانها"
+            className="tv-focusable flex items-center gap-2 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-100 rounded-xl font-bold transition-all cursor-pointer text-sm md:text-base border border-slate-700"
+            title="رفع ملف قنوات (M3U, M3U8, CFG, TXT) وإضافته مباشرة إلى القنوات الصوتية"
           >
-            <Upload className="w-4 h-4" />
-            <span>إضافة ملف (M3U / CFG / TXT)</span>
+            <Upload className="w-4 h-4 text-emerald-400" />
+            <span>رفع ملف قنوات</span>
           </button>
 
           {/* زر إضافة قناة صوتية مخصصة */}
@@ -54,11 +76,11 @@ export const TopControls: React.FC<TopControlsProps> = ({
             id="btn-add-custom-channel"
             type="button"
             onClick={onOpenAddChannelModal}
-            className="tv-focusable flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-xl font-bold transition-all shadow-md hover:shadow-emerald-600/40 cursor-pointer text-sm md:text-base border border-emerald-500/50"
-            title="إضافة قناة صوتية مخصصة بكتابة اسمها ورابط البث واختبارها فورياً"
+            className="tv-focusable flex items-center gap-2 px-3.5 py-2.5 bg-emerald-700/80 hover:bg-emerald-600 active:bg-emerald-700 text-white rounded-xl font-bold transition-all shadow-sm cursor-pointer text-sm md:text-base border border-emerald-500/50"
+            title="إضافة قناة صوتية مخصصة برابط مباشر"
           >
             <Plus className="w-4 h-4" />
-            <span>إضافة قناة صوتية</span>
+            <span>إضافة قناة</span>
           </button>
 
           {/* زرار تحديث القائمة */}
@@ -68,7 +90,7 @@ export const TopControls: React.FC<TopControlsProps> = ({
             onClick={onRefreshList}
             disabled={!hasSavedFile}
             title={hasSavedFile ? `تحديث الملف: ${savedFileName || 'الملف المحفوظ'}` : 'لا يوجد ملف محفوظ لتحديثه'}
-            className={`tv-focusable flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all text-sm md:text-base ${
+            className={`tv-focusable flex items-center gap-2 px-3.5 py-2.5 rounded-xl font-bold transition-all text-sm md:text-base ${
               hasSavedFile
                 ? 'bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-100 border border-slate-700 cursor-pointer'
                 : 'bg-slate-800/40 text-slate-500 border border-slate-800/60 cursor-not-allowed opacity-60'
@@ -76,33 +98,6 @@ export const TopControls: React.FC<TopControlsProps> = ({
           >
             <RefreshCw className="w-4 h-4" />
             <span>تحديث القائمة</span>
-          </button>
-
-          {/* زرار Play/Pause */}
-          <button
-            id="btn-play-pause"
-            type="button"
-            onClick={onTogglePlayPause}
-            disabled={isPlayPauseDisabled}
-            className={`tv-focusable flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold transition-all text-sm md:text-base border ${
-              isPlayPauseDisabled
-                ? 'bg-emerald-950/40 text-emerald-700/50 border-emerald-900/30 cursor-not-allowed opacity-50'
-                : isPlaying
-                ? 'bg-amber-600 hover:bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-600/30 cursor-pointer'
-                : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-600/30 cursor-pointer'
-            }`}
-          >
-            {isPlaying ? (
-              <>
-                <Pause className="w-4 h-4 fill-current" />
-                <span>Pause</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 fill-current" />
-                <span>Play</span>
-              </>
-            )}
           </button>
 
           {/* زرار Hide (إخفاء الشاشة مع إبقاء الخدمة والصوت) */}
@@ -116,20 +111,6 @@ export const TopControls: React.FC<TopControlsProps> = ({
             <EyeOff className="w-4 h-4 text-slate-400" />
             <span>Hide (إخفاء)</span>
           </button>
-
-          {/* زرار إيقاف Stop */}
-          {activeChannelName && (
-            <button
-              id="btn-stop-channel"
-              type="button"
-              onClick={onStop}
-              className="tv-focusable flex items-center gap-2 px-3.5 py-2.5 bg-rose-950/60 hover:bg-rose-900 text-rose-300 hover:text-rose-100 border border-rose-800/60 rounded-xl font-medium transition-all text-sm cursor-pointer"
-              title="إيقاف التشغيل كلياً ومسح آخر قناة شغالة"
-            >
-              <Square className="w-3.5 h-3.5 fill-current" />
-              <span>إيقاف</span>
-            </button>
-          )}
         </div>
 
         {/* Current status chip */}

@@ -4,7 +4,11 @@ export interface Channel {
   url: string;
   logo?: string;
   group?: string;
+  origin?: 'user_upload' | 'preset' | 'custom';
+  sourceFileName?: string;
 }
+
+export type ActiveView = 'audio_channels' | 'preset';
 
 export type PlayerStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'reconnecting' | 'error';
 
