@@ -1,7 +1,8 @@
 import React from 'react';
-import { Radio, BookOpen, Music, Sparkles, FileAudio } from 'lucide-react';
+import { Radio, BookOpen, Music, Sparkles, FileAudio, Trophy } from 'lucide-react';
 import {
   EGYPTIAN_RADIO_PRESET,
+  ANIS_AND_SPORTS_PRESET,
   QURAN_RECITERS_PRESET,
   EGYPTIAN_SINGERS_PRESET,
   PresetPlaylist,
@@ -26,154 +27,165 @@ export const PresetPlaylistsBar: React.FC<PresetPlaylistsBarProps> = ({
   return (
     <div
       id="preset-playlists-section"
-      className="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-4 shadow-lg space-y-3"
+      className="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 space-y-2"
     >
-      <div className="flex items-center gap-2">
-        <Sparkles className="w-4 h-4 text-amber-400" />
-        <h2 className="text-sm md:text-base font-bold text-slate-100">
-          أقسام وقوائم القنوات
-        </h2>
-        <span className="text-[11px] font-medium text-slate-400">
-          (اضغط على أي قسم لعرض وتشغيل قنواته)
+      <div className="flex items-center justify-between gap-2 px-1">
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+          <h2 className="text-xs md:text-sm font-bold text-slate-200">
+            أقسام وقوائم القنوات
+          </h2>
+        </div>
+        <span className="text-[10px] text-slate-400">
+          (اضغط للتنقل السريع بين الباقات)
         </span>
       </div>
 
-      {/* الأزرار الأربعة جنباً إلى جنب ونفس الحجم تماماً */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* زر 1: قنوات الراديو المصرية (وأولها إذاعة القرآن الكريم) */}
+      {/* الأزرار الخمسة بتصميم مدمج ومضغوط وسريع جداً على شاشات التلفاز ومعالجات الرسيفر */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+        {/* زر 1: قنوات الراديو المصرية */}
         <button
           id="btn-preset-egypt-radio"
           type="button"
           onClick={() => onLoadPreset(EGYPTIAN_RADIO_PRESET)}
-          className={`tv-focusable text-right p-3.5 rounded-xl border transition-all cursor-pointer group flex flex-col justify-between h-full min-h-[105px] ${
+          className={`tv-focusable text-right p-2 rounded-lg border cursor-pointer flex items-center gap-2.5 transition-colors ${
             !isAudioChannelsActive && activePresetId === EGYPTIAN_RADIO_PRESET.id
-              ? 'bg-amber-950/50 border-amber-500 shadow-md shadow-amber-500/20 ring-1 ring-amber-500'
-              : 'bg-slate-800/80 hover:bg-slate-800 border-slate-700/80 hover:border-amber-500/60 shadow-sm'
+              ? 'bg-amber-950/60 border-amber-500 text-white'
+              : 'bg-slate-800/80 hover:bg-slate-800 border-slate-700 text-slate-300 hover:border-amber-500'
           }`}
         >
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-red-600 flex items-center justify-center text-white shrink-0 shadow-md">
-                <Radio className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-black text-white group-hover:text-amber-300 transition-colors">
-                  قنوات الراديو المصرية
-                </h3>
-                <span className="text-[11px] text-amber-400 font-bold block">
-                  ★ أولها إذاعة القرآن الكريم
-                </span>
-              </div>
-            </div>
-            <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-900 border border-slate-700 text-slate-300 shrink-0">
-              {EGYPTIAN_RADIO_PRESET.channels.length} إذاعة
-            </span>
+          <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
+            <Radio className="w-4 h-4" />
           </div>
-          <p className="text-[11px] text-slate-400 mt-2 line-clamp-1">
-            إذاعة القرآن، 9090 FM، نجوم إف إم، راديو مصر، ميجا، نغم، راديو هيتس...
-          </p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-1">
+              <h3 className="text-xs font-bold text-white truncate">
+                الراديو المصري
+              </h3>
+              <span className="text-[10px] font-mono text-amber-400 font-bold shrink-0">
+                {EGYPTIAN_RADIO_PRESET.channels.length}
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 truncate">
+              القرآن الكريم، 9090، شعبي...
+            </p>
+          </div>
         </button>
 
-        {/* زر 2: أشهر قراء القرآن الكريم */}
+        {/* زر 2: راديو أنيس والرياضة */}
+        <button
+          id="btn-preset-anis-sports"
+          type="button"
+          onClick={() => onLoadPreset(ANIS_AND_SPORTS_PRESET)}
+          className={`tv-focusable text-right p-2 rounded-lg border cursor-pointer flex items-center gap-2.5 transition-colors ${
+            !isAudioChannelsActive && activePresetId === ANIS_AND_SPORTS_PRESET.id
+              ? 'bg-cyan-950/60 border-cyan-400 text-white'
+              : 'bg-slate-800/80 hover:bg-slate-800 border-slate-700 text-slate-300 hover:border-cyan-500'
+          }`}
+        >
+          <div className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center shrink-0">
+            <Trophy className="w-4 h-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-1">
+              <h3 className="text-xs font-bold text-white truncate">
+                راديو أنيس والرياضة
+              </h3>
+              <span className="text-[10px] font-mono text-cyan-400 font-bold shrink-0">
+                {ANIS_AND_SPORTS_PRESET.channels.length}
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 truncate">
+              ماكس، سبورت، الكأس، أون سبورت...
+            </p>
+          </div>
+        </button>
+
+        {/* زر 3: أشهر قراء القرآن الكريم */}
         <button
           id="btn-preset-quran-reciters"
           type="button"
           onClick={() => onLoadPreset(QURAN_RECITERS_PRESET)}
-          className={`tv-focusable text-right p-3.5 rounded-xl border transition-all cursor-pointer group flex flex-col justify-between h-full min-h-[105px] ${
+          className={`tv-focusable text-right p-2 rounded-lg border cursor-pointer flex items-center gap-2.5 transition-colors ${
             !isAudioChannelsActive && activePresetId === QURAN_RECITERS_PRESET.id
-              ? 'bg-emerald-950/50 border-emerald-500 shadow-md shadow-emerald-500/20 ring-1 ring-emerald-500'
-              : 'bg-slate-800/80 hover:bg-slate-800 border-slate-700/80 hover:border-emerald-500/60 shadow-sm'
+              ? 'bg-emerald-950/60 border-emerald-500 text-white'
+              : 'bg-slate-800/80 hover:bg-slate-800 border-slate-700 text-slate-300 hover:border-emerald-500'
           }`}
         >
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white shrink-0 shadow-md">
-                <BookOpen className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-black text-white group-hover:text-emerald-300 transition-colors">
-                  أشهر قراء القرآن الكريم
-                </h3>
-                <span className="text-[11px] text-emerald-400 font-bold block">
-                  تلاوات متواصلة 24/7 لأكابر القراء
-                </span>
-              </div>
-            </div>
-            <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-900 border border-slate-700 text-slate-300 shrink-0">
-              {QURAN_RECITERS_PRESET.channels.length} قارئ
-            </span>
+          <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
+            <BookOpen className="w-4 h-4" />
           </div>
-          <p className="text-[11px] text-slate-400 mt-2 line-clamp-1">
-            عبد الباسط، المنشاوي، الحصري، مصطفى إسماعيل، البنا، الطبلاوي، العفاسي...
-          </p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-1">
+              <h3 className="text-xs font-bold text-white truncate">
+                قراء القرآن الكريم
+              </h3>
+              <span className="text-[10px] font-mono text-emerald-400 font-bold shrink-0">
+                {QURAN_RECITERS_PRESET.channels.length}
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 truncate">
+              عبد الباسط، المنشاوي، الحصري...
+            </p>
+          </div>
         </button>
 
-        {/* زر 3: راديو أشهر مغنين مصر */}
+        {/* زر 4: راديو كلاسيكيات الطرب */}
         <button
           id="btn-preset-egypt-singers"
           type="button"
           onClick={() => onLoadPreset(EGYPTIAN_SINGERS_PRESET)}
-          className={`tv-focusable text-right p-3.5 rounded-xl border transition-all cursor-pointer group flex flex-col justify-between h-full min-h-[105px] ${
+          className={`tv-focusable text-right p-2 rounded-lg border cursor-pointer flex items-center gap-2.5 transition-colors ${
             !isAudioChannelsActive && activePresetId === EGYPTIAN_SINGERS_PRESET.id
-              ? 'bg-purple-950/50 border-purple-500 shadow-md shadow-purple-500/20 ring-1 ring-purple-500'
-              : 'bg-slate-800/80 hover:bg-slate-800 border-slate-700/80 hover:border-purple-500/60 shadow-sm'
+              ? 'bg-purple-950/60 border-purple-500 text-white'
+              : 'bg-slate-800/80 hover:bg-slate-800 border-slate-700 text-slate-300 hover:border-purple-500'
           }`}
         >
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-700 flex items-center justify-center text-white shrink-0 shadow-md">
-                <Music className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-black text-white group-hover:text-purple-300 transition-colors">
-                  راديو أشهر مغنين مصر
-                </h3>
-                <span className="text-[11px] text-purple-400 font-bold block">
-                  روائع كوكب الشرق والعندليب
-                </span>
-              </div>
-            </div>
-            <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-900 border border-slate-700 text-slate-300 shrink-0">
-              {EGYPTIAN_SINGERS_PRESET.channels.length} فنان
-            </span>
+          <div className="w-7 h-7 rounded-lg bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-center shrink-0">
+            <Music className="w-4 h-4" />
           </div>
-          <p className="text-[11px] text-slate-400 mt-2 line-clamp-1">
-            أم كلثوم، عبد الحليم حافظ، محمد عبد الوهاب، فريد الأطرش، نجاة، عمرو دياب...
-          </p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-1">
+              <h3 className="text-xs font-bold text-white truncate">
+                كلاسيكيات الطرب
+              </h3>
+              <span className="text-[10px] font-mono text-purple-400 font-bold shrink-0">
+                {EGYPTIAN_SINGERS_PRESET.channels.length}
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 truncate">
+              أم كلثوم، حليم، عبد الوهاب...
+            </p>
+          </div>
         </button>
 
-        {/* زر 4: القنوات الصوتية (ملفات وقنوات المستخدم المرفوعة) */}
+        {/* زر 5: القنوات الصوتية (ملفات وقنوات المستخدم المرفوعة) */}
         <button
           id="btn-tab-audio-channels"
           type="button"
           onClick={onSelectAudioChannels}
-          className={`tv-focusable text-right p-3.5 rounded-xl border transition-all cursor-pointer group flex flex-col justify-between h-full min-h-[105px] ${
+          className={`tv-focusable text-right p-2 rounded-lg border cursor-pointer flex items-center gap-2.5 transition-colors col-span-2 sm:col-span-1 ${
             isAudioChannelsActive
-              ? 'bg-blue-950/50 border-blue-500 shadow-md shadow-blue-500/20 ring-1 ring-blue-500'
-              : 'bg-slate-800/80 hover:bg-slate-800 border-slate-700/80 hover:border-blue-500/60 shadow-sm'
+              ? 'bg-blue-950/70 border-blue-400 text-white'
+              : 'bg-slate-800/80 hover:bg-slate-800 border-slate-700 text-slate-300 hover:border-blue-500'
           }`}
         >
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white shrink-0 shadow-md">
-                <FileAudio className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-black text-white group-hover:text-blue-300 transition-colors">
-                  القنوات الصوتية
-                </h3>
-                <span className="text-[11px] text-blue-400 font-bold block">
-                  ملفاتك وقنواتك المرفوعة
-                </span>
-              </div>
-            </div>
-            <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-900 border border-slate-700 text-blue-300 shrink-0">
-              {uploadedChannelsCount > 0 ? `${uploadedChannelsCount} قناة` : 'ملفاتي'}
-            </span>
+          <div className="w-7 h-7 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center shrink-0">
+            <FileAudio className="w-4 h-4" />
           </div>
-          <p className="text-[11px] text-slate-400 mt-2 line-clamp-1">
-            ملفات M3U, M3U8, CFG, TXT والقنوات الصوتية المخصصة...
-          </p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-1">
+              <h3 className="text-xs font-bold text-white truncate">
+                القنوات الصوتية
+              </h3>
+              <span className="text-[10px] font-mono text-blue-400 font-bold shrink-0">
+                {uploadedChannelsCount > 0 ? `${uploadedChannelsCount}` : 'ملفاتي'}
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 truncate">
+              ملفاتك المرفوعة (M3U / TXT)
+            </p>
+          </div>
         </button>
       </div>
     </div>

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AudioCast - مشغل قنوات M3U</title>
-    <meta name="description" content="مشغل قنوات وبثوث M3U عبر محرك Hls.js متعدد البروتوكولات وتدفقات البث المباشر، باقات الإذاعات المصرية وقراء القرآن والمطربين، وأولوية الصوت القصوى" />
+    <meta name="description" content="مشغل قنوات وبثوث M3U المدمج بمشغل ExoPlayer Media3 للرسيفر والموبايل، يدعم أندرويد 6 حتى 15 مع مضاعفة صوت التطبيق 3 أضعاف وتشغيل الخلفية" />
     <meta name="author" content="Eng: Mohamed Barakat" />
     <meta name="theme-color" content="#0f172a" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -14,12 +14,34 @@
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <meta property="og:title" content="AudioCast - مشغل قنوات M3U" />
-    <meta property="og:description" content="مشغل قنوات وبثوث M3U عبر محرك Hls.js متعدد البروتوكولات وتدفقات البث المباشر، باقات الإذاعات المصرية وقراء القرآن والمطربين، وأولوية الصوت القصوى" />
+    <meta property="og:description" content="مشغل قنوات وبثوث M3U المدمج بمشغل ExoPlayer Media3 للرسيفر والموبايل، يدعم أندرويد 6 حتى 15 مع مضاعفة صوت التطبيق 3 أضعاف وتشغيل الخلفية" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <!-- Polyfills & Compatibility for Android 6.0 (API 23) to Android 15 -->
+    <script>
+      (function() {
+        if (typeof window !== 'undefined') {
+          if (!window.globalThis) window.globalThis = window;
+          if (!window.requestAnimationFrame) {
+            window.requestAnimationFrame = function(cb) { return setTimeout(cb, 16); };
+            window.cancelAnimationFrame = function(id) { clearTimeout(id); };
+          }
+          if (typeof Object.fromEntries === 'undefined') {
+            Object.fromEntries = function(entries) {
+              var obj = {};
+              for (var i = 0; i < entries.length; i++) {
+                var pair = entries[i];
+                obj[pair[0]] = pair[1];
+              }
+              return obj;
+            };
+          }
+        }
+      })();
+    </script>
   </head>
   <body class="bg-slate-950 text-slate-100 font-['Tajawal',sans-serif] antialiased min-h-screen">
     <div id="root"></div>

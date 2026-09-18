@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Volume2, Search, Radio, Tv, Trash2, ChevronLeft, ChevronRight, Hash } from 'lucide-react';
+import { Volume2, Search, Radio, Tv, Trash2, ChevronLeft, ChevronRight, Hash, Sparkles, Upload } from 'lucide-react';
 import { Channel, PlayerStatus } from '../types';
 
 interface ChannelListProps {
@@ -14,7 +14,7 @@ interface ChannelListProps {
   onUploadNewFile?: () => void;
 }
 
-const ITEMS_PER_PAGE = 40; // خفيف وسريع على رامات ومعالج الرسيفر
+const ITEMS_PER_PAGE = 24; // فائق الخفة والسرعة على معالجات Amlogic Cortex-A53 وذاكرة الرسيفر
 
 export const ChannelList: React.FC<ChannelListProps> = ({
   channels,
@@ -121,11 +121,16 @@ export const ChannelList: React.FC<ChannelListProps> = ({
       }
 
       if (digit !== null) {
-        // تجميع الأرقام المكتوبة وراء بعض (مثلاً ضغط 1 ثم 2 ليصبح 12)
+        // تجميع أرقام الريموت كنترول للتبديل السريع بين القنوات
         setEnteredDigits((prev) => {
           const newNumberStr = prev + digit;
+          const candidateNumber = parseInt(newNumberStr, 10);
 
           if (digitTimeoutRef.current) clearTimeout(digitTimeoutRef.current);
+
+          // إذا كان الرقم أكبر من أي قناة محتملة مكونة من خانتين، نفذ فوراً
+          const canHaveAnotherDigit = candidateNumber * 10 <= channels.length;
+          const delayMs = canHaveAnotherDigit ? 380 : 50;
 
           digitTimeoutRef.current = setTimeout(() => {
             const channelNumber = parseInt(newNumberStr, 10);
@@ -136,7 +141,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
                 // الانتقال للصفحة التي تحتوي هذه القناة
                 const targetPage = Math.floor(targetIndex / ITEMS_PER_PAGE) + 1;
                 setCurrentPage(targetPage);
-                // تشغيل القناة مباشرة لتجربتها والتأكد منها فورياً
+                // تشغيل القناة الصوتية مباشرة بنفس الرقم المضغوط
                 onSelectChannel(targetChannel);
 
                 // إشعار مرئي بالرقم واسم القناة على الشاشة
@@ -158,7 +163,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
             toastTimeoutRef.current = setTimeout(() => {
               setChannelJumpToast(null);
             }, 3000);
-          }, 1000);
+          }, delayMs);
 
           return newNumberStr;
         });
@@ -203,13 +208,17 @@ export const ChannelList: React.FC<ChannelListProps> = ({
           </p>
         </div>
         {onUploadNewFile && (
-          <button
-            type="button"
-            onClick={onUploadNewFile}
-            className="tv-focusable px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-sm shadow-md shadow-blue-600/30 cursor-pointer"
-          >
-            رفع ملف قنوات (M3U / CFG / TXT)
-          </button>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <button
+              id="btn-empty-upload-playlist"
+              type="button"
+              onClick={onUploadNewFile}
+              className="tv-focusable px-6 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 rounded-xl font-black text-sm shadow-xl shadow-amber-500/25 flex items-center gap-2 cursor-pointer transition-all"
+            >
+              <Sparkles className="w-4 h-4 shrink-0" />
+              <span>فتح مستعرض وقارئ الملفات (M3U / TXT / CFG)</span>
+            </button>
+          </div>
         )}
       </div>
     );
@@ -282,6 +291,13 @@ export const ChannelList: React.FC<ChannelListProps> = ({
             <span>أرقام الريموت تفتح القناة مباشرة</span>
           </div>
 
+          {/* شارة مشغل ExoPlayer للقنوات الصوتية */}
+          {activeView === 'audio_channels' && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-950/60 border border-amber-500/40 text-[11px] text-amber-300 font-bold">
+              <span>⚡ مشغل ExoPlayer مفعل</span>
+            </div>
+          )}
+
           {/* زر مسح الكل */}
           {showClearConfirm ? (
             <div className="flex items-center gap-1.5 bg-rose-950/80 border border-rose-800 px-2.5 py-1 rounded-xl text-xs">
@@ -353,10 +369,10 @@ export const ChannelList: React.FC<ChannelListProps> = ({
         </div>
       </div>
 
-      {/* Channels Grid / List with High Visibility TV Remote Focus & Hover Animation */}
+      {/* Channels Grid / List with High Visibility TV Remote Focus & Lightweight Styling */}
       <div
         id="channels-scroll-container"
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-[58vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[58vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900"
       >
         {paginatedChannels.map((channel, idx) => {
           const globalIdx = (safeCurrentPage - 1) * ITEMS_PER_PAGE + idx;
@@ -364,6 +380,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
           const isCurrentActive = activeChannel?.id === channel.id || activeChannel?.url === channel.url;
           const isPlaying = isCurrentActive && status === 'playing';
           const isLoading = isCurrentActive && (status === 'loading' || status === 'reconnecting');
+          const isExoPlayer = channel.engine === 'exoplayer' || channel.origin === 'user_upload' || Boolean(channel.sourceFileName);
 
           return (
             <div
@@ -377,39 +394,39 @@ export const ChannelList: React.FC<ChannelListProps> = ({
                   onSelectChannel(channel);
                 }
               }}
-              className={`tv-focusable group flex items-center justify-between gap-2.5 p-3 rounded-2xl text-right cursor-pointer border transition-all duration-150 select-none ${
+              className={`tv-focusable group flex items-center justify-between gap-2 p-2 rounded-lg text-right cursor-pointer border transition-colors select-none ${
                 isCurrentActive
-                  ? 'tv-channel-active bg-gradient-to-l from-emerald-950/90 to-slate-900 border-emerald-500 text-white'
-                  : 'bg-slate-800/80 hover:bg-slate-800 border-slate-700/80 hover:border-slate-500 text-slate-200 shadow-sm'
+                  ? 'tv-channel-active bg-emerald-950/80 border-emerald-500 text-white'
+                  : 'bg-slate-800/80 hover:bg-slate-800 border-slate-700 hover:border-slate-500 text-slate-200'
               }`}
             >
-              <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
                 {/* Play / Active Icon with Channel Number */}
                 <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all ${
+                  className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 transition-colors ${
                     isCurrentActive
                       ? isPlaying
-                        ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/40'
-                        : 'bg-amber-500 text-white shadow-lg shadow-amber-500/40'
-                      : 'bg-slate-700/70 text-slate-300 group-hover:bg-blue-600 group-hover:text-white group-focus:bg-blue-600 group-focus:text-white'
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-amber-500 text-white'
+                      : 'bg-slate-700 text-slate-300 group-hover:bg-blue-600 group-hover:text-white group-focus:bg-blue-600 group-focus:text-white'
                   }`}
                 >
                   {isCurrentActive ? (
                     isPlaying ? (
-                      <span className="text-sm font-black">▶</span>
+                      <span className="text-xs font-black">▶</span>
                     ) : isLoading ? (
-                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     ) : (
-                      <Volume2 className="w-4 h-4" />
+                      <Volume2 className="w-3.5 h-3.5" />
                     )
                   ) : (
-                    <span className="text-xs font-mono font-bold">{channelNumber}</span>
+                    <span className="text-[11px] font-mono font-bold">{channelNumber}</span>
                   )}
                 </div>
 
                 {/* Logo / Thumbnail if exists */}
                 {channel.logo ? (
-                  <div className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-700/80 overflow-hidden shrink-0 flex items-center justify-center p-0.5">
+                  <div className="w-7 h-7 rounded-md bg-slate-900 border border-slate-700 overflow-hidden shrink-0 flex items-center justify-center p-0.5">
                     <img
                       src={channel.logo}
                       alt={channel.name}
@@ -426,7 +443,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
                 {/* Channel Meta */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <h4 className={`text-sm font-bold truncate transition-colors ${
+                    <h4 className={`text-xs font-bold truncate transition-colors ${
                       isCurrentActive 
                         ? 'text-emerald-300' 
                         : 'text-slate-100 group-hover:text-blue-300 group-focus:text-blue-300'
@@ -434,20 +451,25 @@ export const ChannelList: React.FC<ChannelListProps> = ({
                       {channel.name}
                     </h4>
                     {isCurrentActive && (
-                      <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                        {isPlaying ? '▶ شغالة' : 'مؤقت'}
+                      <span className="shrink-0 text-[9px] font-bold px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                        {isPlaying ? 'شغال' : 'مؤقت'}
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                  <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
                     {channel.group && (
-                      <p className="text-[11px] text-slate-400 truncate">
+                      <p className="text-[10px] text-slate-400 truncate">
                         {channel.group}
                       </p>
                     )}
                     {channel.sourceFileName && (
-                      <span className="text-[10px] text-blue-300 font-medium bg-blue-950/70 border border-blue-800/60 px-1.5 py-0.2 rounded">
+                      <span className="text-[9px] text-blue-300 font-medium bg-blue-950/70 border border-blue-800/60 px-1 rounded">
                         {channel.sourceFileName}
+                      </span>
+                    )}
+                    {isExoPlayer && (
+                      <span className="text-[9px] text-amber-300 font-semibold bg-amber-950/80 border border-amber-600/40 px-1 rounded flex items-center gap-0.5">
+                        ⚡ ExoPlayer
                       </span>
                     )}
                   </div>
@@ -455,7 +477,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
               </div>
 
               {/* رقم القناة في الزاوية للريموت */}
-              <span className="text-[11px] font-mono text-slate-500 group-hover:text-slate-300 group-focus:text-blue-300 pl-1 font-bold">
+              <span className="text-[10px] font-mono text-slate-500 group-hover:text-slate-300 group-focus:text-blue-300 pl-0.5 font-bold">
                 #{channelNumber}
               </span>
 
@@ -465,9 +487,9 @@ export const ChannelList: React.FC<ChannelListProps> = ({
                 id={`btn-delete-channel-${channel.id || globalIdx}`}
                 onClick={(e) => onDeleteChannel(channel.id, e)}
                 title="حذف هذه القناة من القائمة"
-                className="opacity-40 group-hover:opacity-100 group-focus:opacity-100 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 p-1.5 rounded-xl transition-all shrink-0 cursor-pointer"
+                className="opacity-40 group-hover:opacity-100 group-focus:opacity-100 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 p-1 rounded-lg transition-all shrink-0 cursor-pointer"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
           );

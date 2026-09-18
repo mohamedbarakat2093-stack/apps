@@ -6,14 +6,16 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "orientation": "landscape",
+  "orientation": "any",
   "background_color": "#020617",
   "theme_color": "#0f172a",
   "lang": "ar",
   "dir": "rtl",
+  "prefer_related_applications": false,
   "categories": [
-    "entertainment",
     "music",
+    "entertainment",
+    "tv",
     "utilities"
   ],
   "icons": [

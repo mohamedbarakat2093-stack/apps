@@ -402,8 +402,321 @@ export const EGYPTIAN_SINGERS_PRESET: PresetPlaylist = {
   ],
 };
 
+/**
+ * 4. باقة راديو أنيس والقنوات الرياضية العربية (صوتيات تعليق المباريات وبي إن سبورت وأون سبورت FM)
+ */
+export const ANIS_AND_SPORTS_PRESET: PresetPlaylist = {
+  id: 'anis_and_sports',
+  title: 'راديو أنيس والقنوات الرياضية',
+  description: 'باقة راديو أنيس الرسمية لتعليق المباريات وبطولات الكرة والرياضة (Max, Sport, الكأس, الدوريات الأوروبية)',
+  icon: 'Trophy',
+  badge: 'تعليق ورياضة 24/7',
+  color: 'from-blue-600 to-cyan-700',
+  channels: [
+    // --- باقة أنيس ماكس (Anis Max) ---
+    {
+      id: 'anis_max_1',
+      name: 'Anis Max 1',
+      url: 'http://radio.anisfm.vip/live/mx/1?token=83KD1PUVP8#',
+      group: 'باقة أنيس ماكس (Anis Max)',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_max_2',
+      name: 'Anis Max 2',
+      url: 'http://radio.anisfm.vip/live/mx/2?token=83KD1PUVP8#',
+      group: 'باقة أنيس ماكس (Anis Max)',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_max_3',
+      name: 'Anis Max 3',
+      url: 'http://radio.anisfm.vip/live/mx/3?token=83KD1PUVP8#',
+      group: 'باقة أنيس ماكس (Anis Max)',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_max_4',
+      name: 'Anis Max 4',
+      url: 'http://radio.anisfm.vip/live/mx/4?token=83KD1PUVP8#',
+      group: 'باقة أنيس ماكس (Anis Max)',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_max_5',
+      name: 'Anis Max 5',
+      url: 'http://radio.anisfm.vip/live/mx/5?token=83KD1PUVP8#',
+      group: 'باقة أنيس ماكس (Anis Max)',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_max_6',
+      name: 'Anis Max 6',
+      url: 'http://radio.anisfm.vip/live/mx/6?token=83KD1PUVP8#',
+      group: 'باقة أنيس ماكس (Anis Max)',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+
+    // --- صوتيات أنيس الرياضية (Anis Sport) ---
+    {
+      id: 'anis_sport_1',
+      name: 'Anis Sport 1',
+      url: 'http://radio.anisfm.vip/live/pn/1?token=83KD1PUVP8#',
+      group: 'صوتيات أنيس الرياضية (Anis Sport)',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_sport_2',
+      name: 'Anis Sport 2',
+      url: 'http://radio.anisfm.vip/live/pn/2?token=83KD1PUVP8#',
+      group: 'صوتيات أنيس الرياضية (Anis Sport)',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_sport_3',
+      name: 'Anis Sport 3',
+      url: 'http://radio.anisfm.vip/live/pn/3?token=83KD1PUVP8#',
+      group: 'صوتيات أنيس الرياضية (Anis Sport)',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_sport_4',
+      name: 'Anis Sport 4',
+      url: 'http://radio.anisfm.vip/live/pn/4?token=83KD1PUVP8#',
+      group: 'صوتيات أنيس الرياضية (Anis Sport)',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_sport_5',
+      name: 'Anis Sport 5',
+      url: 'http://radio.anisfm.vip/live/pn/5?token=83KD1PUVP8#',
+      group: 'صوتيات أنيس الرياضية (Anis Sport)',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_sport_6',
+      name: 'Anis Sport 6',
+      url: 'http://radio.anisfm.vip/live/pn/6?token=83KD1PUVP8#',
+      group: 'صوتيات أنيس الرياضية (Anis Sport)',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_sport_7',
+      name: 'Anis Sport 7',
+      url: 'http://radio.anisfm.vip/live/pn/7?token=83KD1PUVP8#',
+      group: 'صوتيات أنيس الرياضية (Anis Sport)',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_sport_8',
+      name: 'Anis Sport 8',
+      url: 'http://radio.anisfm.vip/live/pn/8?token=83KD1PUVP8#',
+      group: 'صوتيات أنيس الرياضية (Anis Sport)',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_sport_9',
+      name: 'Anis Sport 9',
+      url: 'http://radio.anisfm.vip/live/pn/9?token=83KD1PUVP8#',
+      group: 'صوتيات أنيس الرياضية (Anis Sport)',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+
+    // --- صوتيات أنيس المتنوعة والكأس والشاشات ---
+    {
+      id: 'anis_al_kass_1',
+      name: 'Anis Al Kass 1',
+      url: 'http://radio.anisfm.vip/live/sha/K1?token=83KD1PUVP8#',
+      group: 'قنوات أنيس المتنوعة والكأس',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_al_kass_2',
+      name: 'Anis Al Kass 2',
+      url: 'http://radio.anisfm.vip/live/sha/K2?token=83KD1PUVP8#',
+      group: 'قنوات أنيس المتنوعة والكأس',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_shasha',
+      name: 'Anis Shasha',
+      url: 'http://radio.anisfm.vip/live/sha/1?token=83KD1PUVP8#',
+      group: 'قنوات أنيس المتنوعة والكأس',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_shahid',
+      name: 'Anis Shahid',
+      url: 'http://radio.anisfm.vip/live/sha/2?token=83KD1PUVP8#',
+      group: 'قنوات أنيس المتنوعة والكأس',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_xtra_1',
+      name: 'Anis Xtra 1',
+      url: 'http://radio.anisfm.vip/live/sha/XR1?token=83KD1PUVP8#',
+      group: 'قنوات أنيس المتنوعة والكأس',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_xtra_2',
+      name: 'Anis Xtra 2',
+      url: 'http://radio.anisfm.vip/live/sha/XR2?token=83KD1PUVP8#',
+      group: 'قنوات أنيس المتنوعة والكأس',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_thm8h_1',
+      name: 'Anis Thm8h 1',
+      url: 'http://radio.anisfm.vip/live/sa/1?token=83KD1PUVP8#',
+      group: 'قنوات أنيس المتنوعة والكأس',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_thm8h_2',
+      name: 'Anis Thm8h 2',
+      url: 'http://radio.anisfm.vip/live/sa/2?token=83KD1PUVP8#',
+      group: 'قنوات أنيس المتنوعة والكأس',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_thm8h_3',
+      name: 'Anis Thm8h 3',
+      url: 'http://radio.anisfm.vip/live/sa/3?token=83KD1PUVP8#',
+      group: 'قنوات أنيس المتنوعة والكأس',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+
+    // --- صوتيات أنيس للغات الأوروبية (Italy, DE, EN, FR) ---
+    {
+      id: 'anis_italy_1',
+      name: 'Anis Italy 1',
+      url: 'http://radio.anisfm.vip/live/it/1?token=83KD1PUVP8#',
+      group: 'صوتيات أنيس العالمية والأوروبية',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_italy_2',
+      name: 'Anis Italy 2',
+      url: 'http://radio.anisfm.vip/live/it/2?token=83KD1PUVP8#',
+      group: 'صوتيات أنيس العالمية والأوروبية',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_de_1',
+      name: 'Anis DE 1',
+      url: 'http://radio.anisfm.vip/live/gr/1?token=83KD1PUVP8#',
+      group: 'صوتيات أنيس العالمية والأوروبية',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_de_2',
+      name: 'Anis DE 2',
+      url: 'http://radio.anisfm.vip/live/gr/2?token=83KD1PUVP8#',
+      group: 'صوتيات أنيس العالمية والأوروبية',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_en_1',
+      name: 'Anis EN 1',
+      url: 'http://radio.anisfm.vip/live/pn/1EN?token=83KD1PUVP8#',
+      group: 'صوتيات أنيس العالمية والأوروبية',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_en_2',
+      name: 'Anis EN 2',
+      url: 'http://radio.anisfm.vip/live/pn/2EN?token=83KD1PUVP8#',
+      group: 'صوتيات أنيس العالمية والأوروبية',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_fr_1',
+      name: 'Anis FR 1',
+      url: 'http://radio.anisfm.vip/live/pn/1FR?token=83KD1PUVP8#',
+      group: 'صوتيات أنيس العالمية والأوروبية',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_fr_2',
+      name: 'Anis FR 2',
+      url: 'http://radio.anisfm.vip/live/pn/2FR?token=83KD1PUVP8#',
+      group: 'صوتيات أنيس العالمية والأوروبية',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+
+    // --- باقة أنيس ماكس للنت الضعيف (Low Bandwidth) ---
+    {
+      id: 'anis_max_1_low',
+      name: 'Anis Max 1 Low',
+      url: 'http://radio.anisfm.vip/live/mx/1L?token=83KD1PUVP8#',
+      group: 'أنيس ماكس للنت الضعيف (Low Bandwidth)',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_max_2_low',
+      name: 'Anis Max 2 Low',
+      url: 'http://radio.anisfm.vip/live/mx/2L?token=83KD1PUVP8#',
+      group: 'أنيس ماكس للنت الضعيف (Low Bandwidth)',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_max_3_low',
+      name: 'Anis Max 3 Low',
+      url: 'http://radio.anisfm.vip/live/mx/3L?token=83KD1PUVP8#',
+      group: 'أنيس ماكس للنت الضعيف (Low Bandwidth)',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_max_4_low',
+      name: 'Anis Max 4 Low',
+      url: 'http://radio.anisfm.vip/live/mx/4L?token=83KD1PUVP8#',
+      group: 'أنيس ماكس للنت الضعيف (Low Bandwidth)',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_max_5_low',
+      name: 'Anis Max 5 Low',
+      url: 'http://radio.anisfm.vip/live/mx/5L?token=83KD1PUVP8#',
+      group: 'أنيس ماكس للنت الضعيف (Low Bandwidth)',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+    {
+      id: 'anis_max_6_low',
+      name: 'Anis Max 6 Low',
+      url: 'http://radio.anisfm.vip/live/mx/6L?token=83KD1PUVP8#',
+      group: 'أنيس ماكس للنت الضعيف (Low Bandwidth)',
+      logo: 'https://cdn-icons-png.flaticon.com/512/861/861512.png',
+    },
+
+    // --- إذاعات الرياضة العربية العامة ---
+    {
+      id: 'eg_onsport_fm_live',
+      name: 'أون سبورت إف إم 93.7 (ON Sport FM مصر)',
+      url: 'https://carina.streamerr.co:2020/stream/OnSportFM',
+      group: 'إذاعات الرياضة العربية',
+      logo: 'https://raw.githubusercontent.com/freetv-app/logos/master/images/al-shabab-wal-riyada.png',
+    },
+    {
+      id: 'radio_mars_morocco',
+      name: 'راديو مارس الرياضي (Radio Mars 91.2 FM - المغرب)',
+      url: 'https://radiomars.ice.infomaniak.ch/radiomars-128.mp3',
+      group: 'إذاعات الرياضة العربية',
+      logo: 'https://radiomars.ma/wp-content/uploads/2026/03/radiomars.ma_.png',
+    },
+    {
+      id: 'ufm_radio_ksa',
+      name: 'إذاعة يو إف إم الرياضية (UFM Radio KSA 90.0 FM - السعودية)',
+      url: 'http://stream.ufmradio.com:8000/;',
+      group: 'إذاعات الرياضة العربية',
+      logo: 'https://cdn-icons-png.flaticon.com/512/1165/1165187.png',
+    },
+  ],
+};
+
 export const ALL_PRESETS: PresetPlaylist[] = [
   EGYPTIAN_RADIO_PRESET,
+  ANIS_AND_SPORTS_PRESET,
   QURAN_RECITERS_PRESET,
   EGYPTIAN_SINGERS_PRESET,
 ];

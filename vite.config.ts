@@ -12,7 +12,7 @@ export default defineConfig(() => {
       },
     },
     build: {
-      target: 'es2018',
+      target: 'es2017',
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

@@ -1,6 +1,6 @@
 {
   "name": "AudioCast",
-  "description": "مشغل قنوات وبثوث M3U عبر محرك Hls.js متعدد البروتوكولات وتدفقات البث المباشر، باقات الإذاعات المصرية وقراء القرآن والمطربين، وأولوية الصوت القصوى",
+  "description": "مشغل قنوات وبثوث M3U المدمج بمشغل ExoPlayer Media3 للرسيفر والموبايل، يدعم أندرويد 6 حتى 15 مع مضاعفة صوت التطبيق 3 أضعاف وتشغيل الخلفية",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

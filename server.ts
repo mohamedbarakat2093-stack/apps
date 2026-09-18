@@ -68,6 +68,78 @@ app.get('/api/stream-playlist', (req: Request, res: Response): void => {
   res.send(m3uContent);
 });
 
+/**
+ * جلب محتوى ملف قنوات M3U عبر رابط خارجي للرسيفر بدون مشاكل CORS
+ */
+app.get('/api/fetch-playlist', (req: Request, res: Response): void => {
+  const targetUrl = req.query.url as string;
+  if (!targetUrl || (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://'))) {
+    res.status(400).json({ success: false, error: 'رابط غير صالح' });
+    return;
+  }
+
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
+  function fetchUrlContent(fetchUrl: string, redirectCount = 0): void {
+    if (redirectCount > 5) {
+      res.status(502).json({ success: false, error: 'تجاوز عدد مرات التحويل (Too many redirects)' });
+      return;
+    }
+
+    try {
+      const urlObj = new URL(fetchUrl);
+      const isHttps = urlObj.protocol === 'https:';
+      const client = isHttps ? https : http;
+
+      const clientReq = client.get(
+        fetchUrl,
+        {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 AudioCast/2.0',
+            'Accept': '*/*',
+          },
+          timeout: 15000,
+        },
+        (upstreamRes) => {
+          const statusCode = upstreamRes.statusCode || 200;
+          if ([301, 302, 303, 307, 308].includes(statusCode) && upstreamRes.headers.location) {
+            const redirectLoc = new URL(upstreamRes.headers.location, fetchUrl).href;
+            fetchUrlContent(redirectLoc, redirectCount + 1);
+            return;
+          }
+
+          let data = '';
+          upstreamRes.setEncoding('utf8');
+          upstreamRes.on('data', (chunk) => {
+            data += chunk;
+            // الحد الأقصى 4 ميجابايت لمنع استهلاك الذاكرة
+            if (data.length > 4 * 1024 * 1024) {
+              upstreamRes.destroy();
+            }
+          });
+
+          upstreamRes.on('end', () => {
+            res.json({ success: true, content: data });
+          });
+        }
+      );
+
+      clientReq.on('error', (err) => {
+        res.status(502).json({ success: false, error: `فشل الاتصال: ${err.message}` });
+      });
+
+      clientReq.on('timeout', () => {
+        clientReq.destroy();
+        res.status(504).json({ success: false, error: 'انتهت مهلة الاتصال بالرابط (Timeout)' });
+      });
+    } catch (err: any) {
+      res.status(400).json({ success: false, error: `رابط غير صالح: ${err?.message}` });
+    }
+  }
+
+  fetchUrlContent(targetUrl);
+});
+
 app.options('/api/stream', (req: Request, res: Response) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
@@ -81,7 +153,7 @@ function proxyStreamRequest(
   res: Response,
   redirectCount = 0
 ): void {
-  if (redirectCount > 6) {
+  if (redirectCount > 10) {
     if (!res.headersSent) {
       res.status(502).send('Too many redirects');
     }
@@ -106,17 +178,22 @@ function proxyStreamRequest(
     hostname: urlObj.hostname,
     port: urlObj.port || (isHttps ? 443 : 80),
     path: urlObj.pathname + urlObj.search,
-    method: req.method === 'HEAD' ? 'HEAD' : 'GET',
+    method: 'GET',
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 AudioCast/2.0',
-      'Accept': '*/*',
-      'Icy-MetaData': '1',
-      'Connection': 'close',
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      Accept: '*/*',
+      'Icy-MetaData': '0',
+      Connection: 'keep-alive',
     },
-    timeout: 15000,
+    timeout: 25000,
+    insecureHTTPParser: true,
+    agent: isHttps
+      ? new https.Agent({ rejectUnauthorized: false, keepAlive: true })
+      : new http.Agent({ keepAlive: true }),
   };
 
-  // Forward range header if present (important for some audio/video segments)
+  // Forward range header if present (important for audio/video seek and chunking)
   if (req.headers.range) {
     requestOptions.headers!['Range'] = req.headers.range;
   }
@@ -133,13 +210,41 @@ function proxyStreamRequest(
     }
 
     const contentType = upstreamRes.headers['content-type'] || 'audio/mpeg';
+
+    // If client requested HEAD, return headers immediately without streaming body
+    if (req.method === 'HEAD') {
+      res.status(statusCode);
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.end();
+      upstreamRes.destroy();
+      return;
+    }
+
+    // Auto-detect Shoutcast status page returning HTML instead of stream:
+    // If a URL like http://host:8000/ returns text/html, retry with /;
+    if (
+      statusCode === 200 &&
+      contentType.includes('text/html') &&
+      urlObj.port &&
+      !streamUrl.includes(';') &&
+      (urlObj.pathname === '/' || urlObj.pathname === '')
+    ) {
+      upstreamRes.resume();
+      const shoutcastUrl = streamUrl.endsWith('/') ? `${streamUrl};` : `${streamUrl}/;`;
+      console.log(`[Proxy] Detected Shoutcast HTML page, retrying with ${shoutcastUrl}`);
+      proxyStreamRequest(shoutcastUrl, req, res, redirectCount + 1);
+      return;
+    }
+
     const isM3u8 =
       streamUrl.toLowerCase().includes('.m3u8') ||
       contentType.includes('application/vnd.apple.mpegurl') ||
       contentType.includes('application/x-mpegurl');
 
     // If it's an M3U8 playlist, rewrite URLs to route through proxy
-    if (isM3u8 && req.method !== 'HEAD') {
+    if (isM3u8) {
       let m3u8Body = '';
       upstreamRes.setEncoding('utf8');
 
@@ -175,6 +280,7 @@ function proxyStreamRequest(
     res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
 
     if (upstreamRes.headers['content-length']) {
       res.setHeader('Content-Length', upstreamRes.headers['content-length']);

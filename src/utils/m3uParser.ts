@@ -8,12 +8,13 @@ export interface ParseResult {
 }
 
 /**
- * Clean and strip UTF-8 BOM, carriage returns, and hidden null bytes
+ * Clean and strip UTF-8 BOM, carriage returns, null bytes and control chars
  */
 function cleanRawContent(raw: string): string {
   if (!raw) return '';
   return raw
     .replace(/^\uFEFF/, '') // Remove UTF-8 Byte Order Mark
+    .replace(/\0/g, '')     // Remove null bytes
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n');
 }
@@ -32,58 +33,83 @@ function cleanRawContent(raw: string): string {
  */
 export function parsePlaylistFile(content: string, fileName = ''): ParseResult {
   if (!content || typeof content !== 'string') {
-    return { success: false, channels: [], error: 'الملف غير صالح أو فارغ' };
+    return { success: false, channels: [], error: 'الملف غير صالح أو فارغ تماماً' };
   }
 
   const clean = cleanRawContent(content).trim();
   if (clean.length === 0) {
-    return { success: false, channels: [], error: 'الملف فارغ تماماً' };
+    return { success: false, channels: [], error: 'الملف المرفوع فارغ تماماً ولا يحتوي على أي أسطر' };
   }
 
-  const lines = clean.split('\n');
-  const channels: Channel[] = [];
+  const lines = clean.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+  if (lines.length === 0) {
+    return { success: false, channels: [], error: 'الملف لا يحتوي على أي محتوى قابل للقراءة' };
+  }
+
+  const lowerClean = clean.toLowerCase();
   const lowerFileName = fileName.toLowerCase();
 
-  // Check if standard M3U
-  const hasExtInf = clean.includes('#EXTINF');
-  const hasExtM3u = clean.includes('#EXTM3U');
+  const tagChannels = (chs: Channel[]): Channel[] => {
+    return chs.map((c, idx) => ({
+      ...c,
+      id: c.id || `file_${Date.now()}_${idx}`,
+      origin: 'user_upload',
+      engine: 'exoplayer',
+      sourceFileName: fileName || c.sourceFileName || 'ملف صوتي',
+    }));
+  };
 
-  if (hasExtInf || hasExtM3u || lowerFileName.endsWith('.m3u') || lowerFileName.endsWith('.m3u8')) {
+  // 1. Check if M3U format (#EXTINF or #EXTM3U or .m3u/.m3u8 extension)
+  if (lowerClean.includes('#extinf') || lowerClean.includes('#extm3u') || lowerFileName.endsWith('.m3u') || lowerFileName.endsWith('.m3u8')) {
     const m3uChannels = parseM3ULines(lines);
     if (m3uChannels.length > 0) {
-      return { success: true, channels: m3uChannels, format: 'm3u' };
+      return { success: true, channels: tagChannels(m3uChannels), format: 'm3u' };
     }
   }
 
-  // Check CFG / INI format (e.g. name = url or channel=...)
+  // 2. Check CFG / INI format (e.g. channel = name, url or [Section] or key = url)
   if (lowerFileName.endsWith('.cfg') || lowerFileName.endsWith('.ini') || clean.includes('=')) {
     const cfgChannels = parseCfgLines(lines);
     if (cfgChannels.length > 0) {
-      return { success: true, channels: cfgChannels, format: 'cfg' };
+      return { success: true, channels: tagChannels(cfgChannels), format: 'cfg' };
     }
   }
 
-  // Check delimiter-separated TXT (comma, semicolon, tab, pipe)
+  // 3. Check delimiter-separated TXT (comma, semicolon, colon, tab, pipe)
   const delimitedChannels = parseDelimitedLines(lines);
   if (delimitedChannels.length > 0) {
-    return { success: true, channels: delimitedChannels, format: 'txt' };
+    return { success: true, channels: tagChannels(delimitedChannels), format: 'txt' };
   }
 
-  // Fallback: extract any valid URLs found in file
+  // 4. Check Alternating Lines format (Line 1: Channel Name, Line 2: Stream URL)
+  const alternatingChannels = parseAlternatingLines(lines);
+  if (alternatingChannels.length > 0) {
+    return { success: true, channels: tagChannels(alternatingChannels), format: 'txt' };
+  }
+
+  // 5. Check if lines contain #EXTINF even if no extension or header
+  const looseM3U = parseM3ULines(lines);
+  if (looseM3U.length > 0) {
+    return { success: true, channels: tagChannels(looseM3U), format: 'm3u' };
+  }
+
+  // 6. Fallback: extract any valid URLs found in file
   const urlChannels = parseRawUrls(lines);
   if (urlChannels.length > 0) {
-    return { success: true, channels: urlChannels, format: 'urls' };
+    return { success: true, channels: tagChannels(urlChannels), format: 'urls' };
   }
 
   return {
     success: false,
     channels: [],
-    error: 'لم نتمكن من العثور على روابط قنوات صالحة داخل الملف',
+    error: 'لم يتم العثور على أي روابط قنوات داخل الملف. تأكد من احتواء الملف على روابط تبدأ بـ http:// أو https:// (صيغ مدعومة: M3U, TXT, CFG)',
   };
 }
 
 /**
  * Standard & Loose M3U Parser
+ * Accurately extracts channel name from #EXTINF:-1,Channel Name
+ * and assigns the next stream URL http://stream.example.com/live
  */
 function parseM3ULines(lines: string[]): Channel[] {
   const channels: Channel[] = [];
@@ -95,42 +121,46 @@ function parseM3ULines(lines: string[]): Channel[] {
     const line = lines[i].trim();
     if (!line) continue;
 
-    if (line.startsWith('#EXTM3U')) {
+    const lowerLine = line.toLowerCase();
+
+    if (lowerLine.startsWith('#extm3u')) {
       continue;
     }
 
-    if (line.startsWith('#EXTINF:')) {
-      // e.g., #EXTINF:-1 tvg-logo="https://..." group-title="News",Al Jazeera Audio
+    if (lowerLine.startsWith('#extinf')) {
+      // e.g., #EXTINF:-1,Radio Stream
+      // e.g., #EXTINF:-1 tvg-logo="https://..." group-title="Live",Radio Stream
       const commaIndex = line.lastIndexOf(',');
       if (commaIndex !== -1) {
-        currentName = line.substring(commaIndex + 1).trim();
+        currentName = line.substring(commaIndex + 1).trim().replace(/^["']|["']$/g, '');
       } else {
-        currentName = 'قناة بدون اسم';
+        const match = line.match(/^#extinf:[^, ]*\s+(.+)$/i);
+        currentName = match ? match[1].trim().replace(/^["']|["']$/g, '') : '';
+      }
+
+      // Fallback name from tvg-name if empty
+      if (!currentName || currentName === 'قناة بدون اسم') {
+        const nameMatch = line.match(/tvg-name="([^"]+)"/i);
+        if (nameMatch) {
+          currentName = nameMatch[1].trim();
+        }
       }
 
       // tvg-logo
       const logoMatch = line.match(/tvg-logo="([^"]+)"/i) || line.match(/logo="([^"]+)"/i);
-      currentLogo = logoMatch ? logoMatch[1] : undefined;
+      currentLogo = logoMatch ? logoMatch[1].trim() : undefined;
 
       // group-title
       const groupMatch = line.match(/group-title="([^"]+)"/i) || line.match(/group="([^"]+)"/i);
-      currentGroup = groupMatch ? groupMatch[1] : undefined;
-
-      // tvg-name fallback
-      if (!currentName || currentName === 'قناة بدون اسم') {
-        const nameMatch = line.match(/tvg-name="([^"]+)"/i);
-        if (nameMatch) {
-          currentName = nameMatch[1];
-        }
-      }
+      currentGroup = groupMatch ? groupMatch[1].trim() : undefined;
     } else if (!line.startsWith('#')) {
-      // Possible stream URL
-      if (isValidStreamUrl(line)) {
+      const cleanUrl = line.trim().replace(/^["']|["']$/g, '');
+      if (isValidStreamUrl(cleanUrl)) {
         const name = currentName || `قناة ${channels.length + 1}`;
         channels.push({
           id: `ch_${Date.now()}_${channels.length + 1}_${Math.random().toString(36).substring(2, 6)}`,
           name,
-          url: line,
+          url: cleanUrl,
           logo: currentLogo,
           group: currentGroup,
         });
@@ -138,6 +168,35 @@ function parseM3ULines(lines: string[]): Channel[] {
       currentName = '';
       currentLogo = undefined;
       currentGroup = undefined;
+    }
+  }
+
+  return channels;
+}
+
+/**
+ * Alternating Lines Parser (Line 1: Channel Name, Line 2: Stream URL)
+ */
+function parseAlternatingLines(lines: string[]): Channel[] {
+  const channels: Channel[] = [];
+
+  for (let i = 0; i < lines.length - 1; i++) {
+    const line = lines[i].trim();
+    const nextLine = lines[i + 1].trim().replace(/^["']|["']$/g, '');
+
+    if (
+      line &&
+      !line.startsWith('#') &&
+      !isValidStreamUrl(line) &&
+      isValidStreamUrl(nextLine)
+    ) {
+      const cleanName = line.replace(/^[0-9]+[\.\-\)\:]\s*/, '').trim().replace(/^["']|["']$/g, '');
+      channels.push({
+        id: `alt_${Date.now()}_${channels.length + 1}_${Math.random().toString(36).substring(2, 6)}`,
+        name: cleanName || `قناة ${channels.length + 1}`,
+        url: nextLine,
+      });
+      i++; // skip nextLine since it was consumed as URL
     }
   }
 
@@ -208,8 +267,8 @@ function parseCfgLines(lines: string[]): Channel[] {
 }
 
 /**
- * Delimited TXT Parser (Comma, Pipe, Semicolon, Tab)
- * Format: Name, URL  OR  URL, Name
+ * Delimited TXT Parser (Comma, Pipe, Semicolon, Tab, Colon)
+ * Format: Name, URL  OR  Name: URL  OR  URL, Name
  */
 function parseDelimitedLines(lines: string[]): Channel[] {
   const channels: Channel[] = [];
@@ -218,7 +277,22 @@ function parseDelimitedLines(lines: string[]): Channel[] {
     const line = lines[i].trim();
     if (!line || line.startsWith('#') || line.startsWith('//')) continue;
 
-    // Check common delimiters: comma, pipe, semicolon, tab
+    // 1. Check Name: http://... (colon separator before URL)
+    const colonMatch = line.match(/^([^:]+?)\s*:\s*(https?:\/\/.+)$/i);
+    if (colonMatch) {
+      const name = colonMatch[1].trim().replace(/^["']|["']$/g, '');
+      const url = colonMatch[2].trim().replace(/^["']|["']$/g, '');
+      if (isValidStreamUrl(url)) {
+        channels.push({
+          id: `txt_${Date.now()}_${channels.length + 1}_${Math.random().toString(36).substring(2, 6)}`,
+          name: name || `قناة ${channels.length + 1}`,
+          url,
+        });
+        continue;
+      }
+    }
+
+    // 2. Check common delimiters: comma, pipe, semicolon, tab
     let delimiter: string | null = null;
     if (line.includes('|')) delimiter = '|';
     else if (line.includes(',')) delimiter = ',';

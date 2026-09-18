@@ -6,6 +6,7 @@ export interface Channel {
   group?: string;
   origin?: 'user_upload' | 'preset' | 'custom';
   sourceFileName?: string;
+  engine?: 'exoplayer' | 'standard';
 }
 
 export type ActiveView = 'audio_channels' | 'preset';
@@ -17,6 +18,29 @@ export interface RetryState {
   maxAttempts: number;
   delaySeconds: number;
   active: boolean;
+}
+
+export interface StreamStats {
+  format: string;
+  protocol: string;
+  bufferSeconds: number;
+  engine: string;
+  isExoPlayer: boolean;
+}
+
+export interface ExoPlayerInfo {
+  isActive: boolean;
+  engineType: 'native_media3' | 'embedded_web' | 'standard';
+  version: string;
+  bufferSeconds: number;
+  maxBufferSeconds: number;
+  liveSyncSeconds: number;
+  audioFocusExclusive: boolean;
+  audioBoostDb: number;
+  audioBoostMultiplier: number;
+  isAudioBoosted: boolean;
+  targetAndroid: string;
+  supportedDevices: string;
 }
 
 export interface StoredPlaylist {
