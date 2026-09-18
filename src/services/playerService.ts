@@ -708,11 +708,11 @@ class PlayerEngine {
 
       const isExoPlayer = this.isExoPlayerChannel(this.activeChannel);
       const isHttpsHost = typeof window !== 'undefined' && window.location.protocol === 'https:';
-      const cleanUrl = rawUrl.trim();
+      const cleanUrl = rawUrl.trim().replace(/#+$/, '');
       const encodedProxy = `/api/stream?url=${encodeURIComponent(cleanUrl)}${isExoPlayer ? '&engine=exoplayer' : ''}`;
       const httpsVersion = cleanUrl.startsWith('http://') ? cleanUrl.replace(/^http:\/\//i, 'https://') : '';
 
-      // Check if Android TV native AndroidControl bridge is available
+      // Check if Android TV native AndroidControl or ExoPlayer bridge is available
       if (typeof window !== 'undefined') {
         const w = window as any;
         if (w && w.AndroidControl && typeof w.AndroidControl.playStream === 'function') {
@@ -729,46 +729,37 @@ class PlayerEngine {
           } catch (err) {
             console.warn('[NativeBridge] Error calling AndroidControl.playStream in playDirectAudio:', err);
           }
-        } else {
-          console.warn('[NativeBridge] AndroidControl bridge not found, falling back to web audio engine');
+        } else if (w && w.ExoPlayer && typeof w.ExoPlayer.play === 'function') {
+          try {
+            console.log('[NativeBridge] Native bridge ExoPlayer found, calling play with URL:', cleanUrl);
+            if (this.audioElement) {
+              this.audioElement.pause();
+              this.audioElement.removeAttribute('src');
+              this.audioElement.src = '';
+            }
+            w.ExoPlayer.play(cleanUrl, this.activeChannel?.name || 'بث صوتي');
+            finish(true);
+            return;
+          } catch (err) {
+            console.warn('[NativeBridge] Error calling ExoPlayer.play:', err);
+          }
         }
       }
 
       const candidates: string[] = [];
 
-      // Anis FM & Sportify active mirror fallbacks
-      if (cleanUrl.includes('anisfm') || cleanUrl.includes('sportify')) {
-        const mirrors = [
-          'http://anisfm.ddns.net',
-          'http://anisfm.pp.ua/1',
-          'http://sportify.pp.ua/listen/anis_fm_1/1',
-          'http://anisfmlow.ddns.net',
-          'http://anisfm.dpdns.org'
-        ];
-        for (const mirror of mirrors) {
-          if (mirror !== cleanUrl) {
-            candidates.push(isHttpsHost ? `/api/stream?url=${encodeURIComponent(mirror)}` : mirror);
-          }
-        }
-      }
-
-      if (cleanUrl.includes('anisfm.pp.ua') && httpsVersion) {
-        candidates.push(httpsVersion);
-      }
-
       if (cleanUrl.startsWith('/api/stream')) {
         candidates.push(cleanUrl);
-      } else if (isHttpsHost) {
-        // Under HTTPS, direct HTTP URLs will be blocked immediately by browser Mixed Content policy.
-        // Therefore, proxying through /api/stream first guarantees it loads over HTTPS.
-        candidates.push(encodedProxy);
-        if (httpsVersion) candidates.push(httpsVersion);
-        candidates.push(cleanUrl);
       } else {
-        // Direct local or cleartext connection from user device IP (e.g. Android TV local app)
-        candidates.push(cleanUrl);
+        // الأولوية دائماً للبروكسي الداخلي الموثوق لأنه يقوم بفك دمج MPEG-TS إلى ADTS AAC نقي
+        // ويتخطى قيود CORS والـ Mixed Content تلقائياً
         candidates.push(encodedProxy);
-        if (httpsVersion) candidates.push(httpsVersion);
+        if (httpsVersion && httpsVersion !== cleanUrl) {
+          candidates.push(httpsVersion);
+        }
+        if (!isHttpsHost) {
+          candidates.push(cleanUrl);
+        }
       }
 
       // Remove duplicates while keeping order

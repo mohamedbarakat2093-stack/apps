@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import path from 'path';
 import http from 'http';
 import https from 'https';
+import { spawn } from 'child_process';
 import { URL } from 'url';
 import { createServer as createViteServer } from 'vite';
 
@@ -269,6 +270,58 @@ function proxyStreamRequest(
         console.warn('Error reading M3U8 upstream:', err);
         if (!res.headersSent) {
           res.status(502).send('Error reading playlist');
+        }
+      });
+      return;
+    }
+
+    // Auto-demux MPEG-TS (video/MP2T) live streams into native ADTS AAC (audio/aac)
+    // Browsers' HTML5 <audio> tag cannot play MPEG-TS containers.
+    // By extracting AAC with 0% CPU via stream copy (-c:a copy -f adts),
+    // any browser, WebView, and receiver can play the audio natively with 0 latency!
+    const isMpegTs =
+      contentType.toLowerCase().includes('video/mp2t') ||
+      contentType.toLowerCase().includes('video/ts') ||
+      contentType.toLowerCase().includes('application/octet-stream') && streamUrl.includes('/live/') ||
+      streamUrl.toLowerCase().split('?')[0].endsWith('.ts');
+
+    if (isMpegTs) {
+      upstreamRes.destroy();
+      proxyReq.destroy();
+
+      const cleanFfmpegUrl = streamUrl.endsWith('#') ? streamUrl.slice(0, -1) : streamUrl;
+
+      const ffmpeg = spawn('ffmpeg', [
+        '-loglevel', 'error',
+        '-fflags', 'nobuffer+flush_packets',
+        '-probesize', '32768',
+        '-analyzeduration', '0',
+        '-user_agent', 'VLC/3.0.18 LibVLC/3.0.18',
+        '-i', cleanFfmpegUrl,
+        '-vn',
+        '-c:a', 'copy',
+        '-f', 'adts',
+        'pipe:1'
+      ]);
+
+      res.status(statusCode || 200);
+      res.setHeader('Content-Type', 'audio/aac');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+
+      ffmpeg.stdout.pipe(res);
+
+      req.on('close', () => {
+        try {
+          ffmpeg.kill('SIGKILL');
+        } catch (_) {}
+      });
+
+      ffmpeg.on('error', (err) => {
+        console.warn('FFmpeg demuxer error:', err);
+        if (!res.headersSent) {
+          res.status(502).end();
         }
       });
       return;

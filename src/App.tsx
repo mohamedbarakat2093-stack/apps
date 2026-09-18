@@ -7,6 +7,7 @@ import { UploadM3UModal } from './components/UploadM3UModal';
 import { EmbeddedFileExplorerModal } from './components/EmbeddedFileExplorerModal';
 import { ExoPlayerModal } from './components/ExoPlayerModal';
 import { PresetPlaylistsBar } from './components/PresetPlaylistsBar';
+import { ReceiverRemoteBar } from './components/ReceiverRemoteBar';
 import { SplashScreen } from './components/SplashScreen';
 import { parsePlaylistFile } from './utils/m3uParser';
 import { playerEngine } from './services/playerService';
@@ -20,6 +21,7 @@ import {
 } from './data/presetPlaylists';
 import { Channel, PlayerStatus, RetryState, ActiveView } from './types';
 import { AlertCircle, CheckCircle2, Info, Radio, Sparkles } from 'lucide-react';
+import { AudioCastIcon } from './components/AudioCastIcon';
 
 const STORAGE_USER_AUDIO_CHANNELS_KEY = 'm3u_user_audio_channels';
 const STORAGE_USER_FILES_KEY = 'm3u_user_files_list';
@@ -46,6 +48,7 @@ export default function App() {
 
   // Player state
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
+  const [previousChannel, setPreviousChannel] = useState<Channel | null>(null);
   const [playerStatus, setPlayerStatus] = useState<PlayerStatus>('idle');
   const [retryState, setRetryState] = useState<RetryState>({
     attempt: 0,
@@ -211,9 +214,15 @@ export default function App() {
       }
     };
 
+    const handleOpenExplorerEvent = () => {
+      setIsEmbeddedExplorerOpen(true);
+    };
+
     window.addEventListener('keydown', handleRemoteKeys);
+    window.addEventListener('audiocast:open_embedded_explorer', handleOpenExplorerEvent);
     return () => {
       window.removeEventListener('keydown', handleRemoteKeys);
+      window.removeEventListener('audiocast:open_embedded_explorer', handleOpenExplorerEvent);
       delete (window as any).onNativeFileRead;
     };
   }, [showToast]);
@@ -241,25 +250,9 @@ export default function App() {
     setIsEmbeddedExplorerOpen(true);
   };
 
-  // فتح مستعرض ملفات الجهاز أو الفلاش ميموري (يدعم جسر أندرويد للرسيفر أولاً)
+  // فتح مستعرض ملفات الجهاز أو الفلاش ميموري المدمج بالتطبيق مباشرة بدون استدعاء مدير ملفات الرسيفر الخارجي
   const handleTriggerNativeFilePicker = () => {
-    const w = typeof window !== 'undefined' ? (window as any) : null;
-    if (w?.ExoPlayer?.openNativeFilePicker) {
-      try {
-        w.ExoPlayer.openNativeFilePicker();
-        return;
-      } catch (_) {}
-    } else if (w?.Android?.openNativeFilePicker) {
-      try {
-        w.Android.openNativeFilePicker();
-        return;
-      } catch (_) {}
-    }
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-      fileInputRef.current.click();
-    }
+    setIsEmbeddedExplorerOpen(true);
   };
 
   // معالجة رفع ملف جديد عبر مستعرض الملفات: تنزل جميع قنواته في خانة "القنوات الصوتية" حصراً
@@ -494,6 +487,12 @@ export default function App() {
 
   // اختيار قناة والتشغيل
   const handleSelectChannel = (channel: Channel) => {
+    setActiveChannel((currentActive) => {
+      if (currentActive && currentActive.id !== channel.id) {
+        setPreviousChannel(currentActive);
+      }
+      return currentActive;
+    });
     setAutoplayBlockedChannel(null);
     playerEngine.enforceExclusiveAudioFocus();
     playerEngine.playChannel(channel);
@@ -598,6 +597,12 @@ export default function App() {
   const handleToggleAudioBoost = () => {
     const newState = playerEngine.toggleAudioBoost();
     setIsAudioBoosted(newState);
+    showToast(
+      newState
+        ? 'تم تفعيل مضاعفة وتضخيم الصوت 2.85X (+9 dB) بنجاح'
+        : 'تم إيقاف مضاعفة الصوت والعودة للمستوى الافتراضي',
+      'info'
+    );
   };
 
   // القنوات المعروضة حالياً وفقاً للزر المضغوط
@@ -606,6 +611,106 @@ export default function App() {
     activeView === 'audio_channels'
       ? 'القنوات الصوتية (ملفاتك المرفوعة)'
       : ALL_PRESETS.find((p) => p.id === activePresetId)?.title || 'قائمة القنوات';
+
+  // معالجة أزرار ريموت الرسيفر (Dreamax B9S2X / Amlogic Remote Controls)
+  const handleRecallLastChannel = useCallback(() => {
+    if (previousChannel) {
+      handleSelectChannel(previousChannel);
+      showToast(`تم استرجاع القناة السابقة (Recall): "${previousChannel.name}"`, 'info');
+    } else {
+      showToast('لا توجد قناة سابقة محفوظة للتبديل إليها', 'info');
+    }
+  }, [previousChannel, showToast]);
+
+  const handleNextChannel = useCallback(() => {
+    if (currentChannels.length === 0) return;
+    const curIdx = activeChannel
+      ? currentChannels.findIndex((c) => c.id === activeChannel.id || c.url === activeChannel.url)
+      : -1;
+    const nextIdx = (curIdx + 1) % currentChannels.length;
+    handleSelectChannel(currentChannels[nextIdx]);
+    showToast(`القناة التالية (${nextIdx + 1}): "${currentChannels[nextIdx].name}"`, 'info');
+  }, [currentChannels, activeChannel, showToast]);
+
+  const handlePrevChannel = useCallback(() => {
+    if (currentChannels.length === 0) return;
+    const curIdx = activeChannel
+      ? currentChannels.findIndex((c) => c.id === activeChannel.id || c.url === activeChannel.url)
+      : 0;
+    const prevIdx = (curIdx - 1 + currentChannels.length) % currentChannels.length;
+    handleSelectChannel(currentChannels[prevIdx]);
+    showToast(`القناة السابقة (${prevIdx + 1}): "${currentChannels[prevIdx].name}"`, 'info');
+  }, [currentChannels, activeChannel, showToast]);
+
+  // الاستماع لأحداث ريموت الرسيفر المباشرة (أزرار الألوان، Recall، CH+/-، إلخ)
+  useEffect(() => {
+    const onRemoteRed = () => handleToggleAudioBoost();
+    const onRemoteGreen = () => setIsHiddenScreen((prev) => !prev);
+    const onRemoteYellow = () => handleLoadPreset(ANIS_AND_SPORTS_PRESET);
+    const onRemoteBlue = () => handleSelectAudioChannelsView();
+    const onRemoteChNext = () => handleNextChannel();
+    const onRemoteChPrev = () => handlePrevChannel();
+    const onRemoteRecall = () => handleRecallLastChannel();
+    const onRemotePlayPause = () => handleTogglePlayPause();
+    const onRemoteStop = () => handleStop();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+
+      // أزرار الألوان في ريموت الرسيفر (تتوافق أيضاً مع F1-F4)
+      if (e.key === 'F1' || e.code === 'F1') {
+        e.preventDefault();
+        onRemoteRed();
+      } else if (e.key === 'F2' || e.code === 'F2') {
+        e.preventDefault();
+        onRemoteGreen();
+      } else if (e.key === 'F3' || e.code === 'F3') {
+        e.preventDefault();
+        onRemoteYellow();
+      } else if (e.key === 'F4' || e.code === 'F4') {
+        e.preventDefault();
+        onRemoteBlue();
+      } else if (e.key === 'PageDown' || e.code === 'PageDown') {
+        e.preventDefault();
+        onRemoteChNext();
+      } else if (e.key === 'PageUp' || e.code === 'PageUp') {
+        e.preventDefault();
+        onRemoteChPrev();
+      }
+    };
+
+    window.addEventListener('audiocast:remote_red', onRemoteRed);
+    window.addEventListener('audiocast:remote_green', onRemoteGreen);
+    window.addEventListener('audiocast:remote_yellow', onRemoteYellow);
+    window.addEventListener('audiocast:remote_blue', onRemoteBlue);
+    window.addEventListener('audiocast:remote_ch_next', onRemoteChNext);
+    window.addEventListener('audiocast:remote_ch_prev', onRemoteChPrev);
+    window.addEventListener('audiocast:remote_recall', onRemoteRecall);
+    window.addEventListener('audiocast:remote_play_pause', onRemotePlayPause);
+    window.addEventListener('audiocast:remote_stop', onRemoteStop);
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      window.removeEventListener('audiocast:remote_red', onRemoteRed);
+      window.removeEventListener('audiocast:remote_green', onRemoteGreen);
+      window.removeEventListener('audiocast:remote_yellow', onRemoteYellow);
+      window.removeEventListener('audiocast:remote_blue', onRemoteBlue);
+      window.removeEventListener('audiocast:remote_ch_next', onRemoteChNext);
+      window.removeEventListener('audiocast:remote_ch_prev', onRemoteChPrev);
+      window.removeEventListener('audiocast:remote_recall', onRemoteRecall);
+      window.removeEventListener('audiocast:remote_play_pause', onRemotePlayPause);
+      window.removeEventListener('audiocast:remote_stop', onRemoteStop);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [
+    handleNextChannel,
+    handlePrevChannel,
+    handleRecallLastChannel,
+    isAudioBoosted,
+  ]);
 
   return (
     <div
@@ -684,9 +789,7 @@ export default function App() {
             {/* App Bar / Header */}
             <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-900 pb-2">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-emerald-600 flex items-center justify-center text-white shrink-0 shadow-sm">
-                  <Radio className="w-4 h-4" />
-                </div>
+                <AudioCastIcon className="w-8 h-8 shrink-0" withGlow={true} />
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h1 className="text-base sm:text-lg font-black tracking-tight text-white">AudioCast</h1>
@@ -755,6 +858,17 @@ export default function App() {
               savedFileName={uploadedFiles[0]?.name}
               isAudioChannelsActive={activeView === 'audio_channels'}
               uploadedChannelsCount={uploadedChannels.length}
+            />
+
+            {/* شريط أزرار الريموت كنترول للرسيفرات (Dreamax B9S2X / أندرويد) للألوان الأربعة والوظائف السريعة */}
+            <ReceiverRemoteBar
+              isAudioBoosted={isAudioBoosted}
+              onToggleAudioBoost={handleToggleAudioBoost}
+              onToggleHideScreen={handleHideScreen}
+              onSelectAnisSports={() => handleLoadPreset(ANIS_AND_SPORTS_PRESET)}
+              onSelectAudioChannels={handleSelectAudioChannelsView}
+              onRecallLastChannel={handleRecallLastChannel}
+              hasPreviousChannel={Boolean(previousChannel)}
             />
 
             {/* خدمة Foreground Service وإشعار النظام ومفاتيح الميديا في الخلفية */}

@@ -1,88 +1,107 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <!-- Background Gradient -->
-    <radialGradient id="bgGrad" cx="50%" cy="40%" r="70%">
+    <!-- Background Radial Gradient -->
+    <radialGradient id="bgGrad" cx="50%" cy="38%" r="72%">
       <stop offset="0%" stop-color="#0f172a"/>
-      <stop offset="60%" stop-color="#090d16"/>
+      <stop offset="55%" stop-color="#080e1a"/>
       <stop offset="100%" stop-color="#020617"/>
     </radialGradient>
 
-    <!-- Glowing Signal Waves Gradient -->
-    <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <!-- Vibrant Cyan to Emerald Audio Wave Gradient -->
+    <linearGradient id="streamWaveGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#38bdf8"/>
-      <stop offset="50%" stop-color="#0ea5e9"/>
-      <stop offset="100%" stop-color="#10b981"/>
+      <stop offset="45%" stop-color="#0ea5e9"/>
+      <stop offset="85%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#34d399"/>
     </linearGradient>
 
-    <!-- Core Speaker Driver Gradient -->
-    <radialGradient id="coreDriver" cx="45%" cy="40%" r="60%">
-      <stop offset="0%" stop-color="#38bdf8"/>
-      <stop offset="40%" stop-color="#0284c7"/>
-      <stop offset="85%" stop-color="#0369a1"/>
-      <stop offset="100%" stop-color="#0c4a6e"/>
+    <!-- Antenna & Core Radiant Gradient -->
+    <linearGradient id="antennaGrad" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#67e8f9"/>
+      <stop offset="60%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#0369a1"/>
+    </linearGradient>
+
+    <!-- Glowing Speaker Driver Sphere -->
+    <radialGradient id="coreAcousticNode" cx="38%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#7dd3fc"/>
+      <stop offset="35%" stop-color="#0284c7"/>
+      <stop offset="75%" stop-color="#0369a1"/>
+      <stop offset="100%" stop-color="#082f49"/>
     </radialGradient>
 
-    <!-- Neon Glow Filter -->
-    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="8" result="blur"/>
+    <!-- High-efficiency vector glow (GPU friendly) -->
+    <filter id="softAcousticGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
       <feComposite in="SourceGraphic" in2="blur" operator="over"/>
     </filter>
 
-    <filter id="pulseGlow" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="16" result="blur"/>
+    <filter id="beaconGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
       <feComposite in="SourceGraphic" in2="blur" operator="over"/>
     </filter>
   </defs>
 
-  <!-- App Card Base (Squircle) -->
-  <rect width="512" height="512" rx="116" fill="url(#bgGrad)"/>
-  <rect x="12" y="12" width="488" height="488" rx="104" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-opacity="0.25"/>
+  <!-- App Card Canvas (Squircle Base with Precision Border) -->
+  <rect width="512" height="512" rx="118" fill="url(#bgGrad)"/>
+  
+  <!-- Subtle inner neon rim -->
+  <rect x="10" y="10" width="492" height="492" rx="108" fill="none" stroke="url(#streamWaveGrad)" stroke-width="2" stroke-opacity="0.35"/>
+  <rect x="18" y="18" width="476" height="476" rx="100" fill="none" stroke="#38bdf8" stroke-width="1" stroke-opacity="0.12"/>
 
-  <!-- Transmission Rings (Concentric Broadcast Waves - بث موجات الصوت) -->
-  <g filter="url(#softGlow)">
-    <!-- Right Broadcast Arcs -->
-    <path d="M 330 190 A 80 80 0 0 1 330 322" fill="none" stroke="url(#waveGrad)" stroke-width="9" stroke-linecap="round"/>
-    <path d="M 375 155 A 135 135 0 0 1 375 357" fill="none" stroke="url(#waveGrad)" stroke-width="8.5" stroke-linecap="round" stroke-opacity="0.85"/>
-    <path d="M 420 120 A 190 190 0 0 1 420 392" fill="none" stroke="url(#waveGrad)" stroke-width="8" stroke-linecap="round" stroke-opacity="0.6"/>
+  <!-- Audio Broadcasting Waves (أمواج بث الصوت اللاسلكية ذات الطابع العصري) -->
+  <g filter="url(#softAcousticGlow)">
+    <!-- Right Audio Broadcasting Arcs (موجات الصوت المنطلقة يميناً) -->
+    <path d="M 326 195 A 72 72 0 0 1 326 305" fill="none" stroke="url(#streamWaveGrad)" stroke-width="8.5" stroke-linecap="round"/>
+    <path d="M 368 162 A 124 124 0 0 1 368 338" fill="none" stroke="url(#streamWaveGrad)" stroke-width="8" stroke-linecap="round" stroke-opacity="0.88"/>
+    <path d="M 410 128 A 176 176 0 0 1 410 372" fill="none" stroke="url(#streamWaveGrad)" stroke-width="7.5" stroke-linecap="round" stroke-opacity="0.6"/>
+    <path d="M 452 96 A 228 228 0 0 1 452 404" fill="none" stroke="url(#streamWaveGrad)" stroke-width="6.5" stroke-linecap="round" stroke-opacity="0.32"/>
 
-    <!-- Left Broadcast Arcs -->
-    <path d="M 182 190 A 80 80 0 0 0 182 322" fill="none" stroke="url(#waveGrad)" stroke-width="9" stroke-linecap="round"/>
-    <path d="M 137 155 A 135 135 0 0 0 137 357" fill="none" stroke="url(#waveGrad)" stroke-width="8.5" stroke-linecap="round" stroke-opacity="0.85"/>
-    <path d="M 92 120 A 190 190 0 0 0 92 392" fill="none" stroke="url(#waveGrad)" stroke-width="8" stroke-linecap="round" stroke-opacity="0.6"/>
+    <!-- Left Audio Broadcasting Arcs (موجات الصوت المنطلقة يساراً) -->
+    <path d="M 186 195 A 72 72 0 0 0 186 305" fill="none" stroke="url(#streamWaveGrad)" stroke-width="8.5" stroke-linecap="round"/>
+    <path d="M 144 162 A 124 124 0 0 0 144 338" fill="none" stroke="url(#streamWaveGrad)" stroke-width="8" stroke-linecap="round" stroke-opacity="0.88"/>
+    <path d="M 102 128 A 176 176 0 0 0 102 372" fill="none" stroke="url(#streamWaveGrad)" stroke-width="7.5" stroke-linecap="round" stroke-opacity="0.6"/>
+    <path d="M 60 96 A 228 228 0 0 0 60 404" fill="none" stroke="url(#streamWaveGrad)" stroke-width="6.5" stroke-linecap="round" stroke-opacity="0.32"/>
   </g>
 
-  <!-- Broadcast Antenna Mast Top (أعلى البرج اللاسلكي) -->
-  <line x1="256" y1="80" x2="256" y2="170" stroke="#38bdf8" stroke-width="7" stroke-linecap="round"/>
-  <!-- Beacon Emitter Ball -->
-  <circle cx="256" cy="74" r="14" fill="#34d399" filter="url(#pulseGlow)"/>
-  <circle cx="256" cy="74" r="7" fill="#ffffff"/>
+  <!-- Broadcast Tower Antenna Mast (برج إرسال البث الصوتي الفضائي) -->
+  <line x1="256" y1="84" x2="256" y2="182" stroke="url(#antennaGrad)" stroke-width="7.5" stroke-linecap="round"/>
+  <!-- Broadcast Signal Radial Waves at Mast Head -->
+  <path d="M 234 94 A 26 26 0 0 1 278 94" fill="none" stroke="#38bdf8" stroke-width="4.5" stroke-linecap="round" stroke-opacity="0.75"/>
+  <path d="M 220 78 A 44 44 0 0 1 292 78" fill="none" stroke="#34d399" stroke-width="4" stroke-linecap="round" stroke-opacity="0.5"/>
 
-  <!-- Central Audio Transmitter Core (سماعة وباعث الصوت الفضائي) -->
-  <g filter="url(#softGlow)">
-    <!-- Outer Speaker Rim -->
-    <circle cx="256" cy="256" r="62" fill="#0f172a" stroke="#38bdf8" stroke-width="5"/>
-    <circle cx="256" cy="256" r="48" fill="url(#coreDriver)"/>
-    <!-- Dome Cap -->
-    <circle cx="256" cy="256" r="22" fill="#34d399" stroke="#ffffff" stroke-width="3"/>
-    <circle cx="252" cy="252" r="6" fill="#ffffff" opacity="0.8"/>
+  <!-- Glowing Live Beacon Emitter at the Tip -->
+  <circle cx="256" cy="80" r="14" fill="#10b981" filter="url(#beaconGlow)"/>
+  <circle cx="256" cy="80" r="7" fill="#ffffff"/>
+
+  <!-- Central Acoustic Cast Node & Speaker Transducer (قلب باعث الصوت الصوتي) -->
+  <g filter="url(#softAcousticGlow)">
+    <!-- Outer Metallic Rim -->
+    <circle cx="256" cy="250" r="62" fill="#090d16" stroke="#38bdf8" stroke-width="5.5"/>
+    <circle cx="256" cy="250" r="48" fill="url(#coreAcousticNode)"/>
+    
+    <!-- Cast Signal Pulse Center -->
+    <circle cx="256" cy="250" r="24" fill="#0f172a" stroke="#34d399" stroke-width="3.5"/>
+    <circle cx="256" cy="250" r="13" fill="#10b981"/>
+    <circle cx="251" cy="246" r="4" fill="#ffffff" opacity="0.9"/>
   </g>
 
-  <!-- Frequency Equalizer Sound Spectrum Bars at Bottom (ترددات الصوت المتدفقة) -->
-  <g transform="translate(146, 395)" filter="url(#softGlow)">
-    <rect x="0" y="24" width="9" height="24" rx="4.5" fill="#38bdf8" opacity="0.9"/>
-    <rect x="18" y="14" width="9" height="34" rx="4.5" fill="#38bdf8"/>
-    <rect x="36" y="28" width="9" height="20" rx="4.5" fill="#38bdf8"/>
-    <rect x="54" y="6" width="9" height="42" rx="4.5" fill="#0ea5e9"/>
-    <rect x="72" y="18" width="9" height="30" rx="4.5" fill="#34d399"/>
-    <rect x="90" y="0" width="9" height="48" rx="4.5" fill="#10b981"/>
-    <rect x="108" y="12" width="9" height="36" rx="4.5" fill="#34d399"/>
-    <rect x="126" y="22" width="9" height="26" rx="4.5" fill="#0ea5e9"/>
-    <rect x="144" y="8" width="9" height="40" rx="4.5" fill="#38bdf8"/>
-    <rect x="162" y="26" width="9" height="22" rx="4.5" fill="#38bdf8"/>
-    <rect x="180" y="16" width="9" height="32" rx="4.5" fill="#38bdf8"/>
-    <rect x="198" y="28" width="9" height="20" rx="4.5" fill="#38bdf8" opacity="0.9"/>
+  <!-- Audio Spectrum Equalizer Bars (أعمدة التردد الصوتي المتدفقة في الأسفل) -->
+  <g transform="translate(136, 396)" filter="url(#softAcousticGlow)">
+    <!-- 11 Balanced Audio Spectrum Bars -->
+    <rect x="0" y="22" width="10" height="26" rx="5" fill="#38bdf8" opacity="0.8"/>
+    <rect x="22" y="12" width="10" height="36" rx="5" fill="#38bdf8" opacity="0.95"/>
+    <rect x="44" y="26" width="10" height="22" rx="5" fill="#0ea5e9"/>
+    <rect x="66" y="6" width="10" height="42" rx="5" fill="#0284c7"/>
+    <rect x="88" y="16" width="10" height="32" rx="5" fill="#10b981"/>
+    <rect x="110" y="0" width="10" height="48" rx="5" fill="#34d399"/>
+    <rect x="132" y="16" width="10" height="32" rx="5" fill="#10b981"/>
+    <rect x="154" y="6" width="10" height="42" rx="5" fill="#0284c7"/>
+    <rect x="176" y="26" width="10" height="22" rx="5" fill="#0ea5e9"/>
+    <rect x="198" y="12" width="10" height="36" rx="5" fill="#38bdf8" opacity="0.95"/>
+    <rect x="220" y="22" width="10" height="26" rx="5" fill="#38bdf8" opacity="0.8"/>
   </g>
 
-  <!-- Clean Live Pulse Dot -->
-  <circle cx="256" cy="468" r="4.5" fill="#10b981"/>
+  <!-- Small Live Audio Status Indicator Pill at the very bottom -->
+  <rect x="232" y="470" width="48" height="8" rx="4" fill="#10b981" opacity="0.85"/>
 </svg>

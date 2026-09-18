@@ -100,6 +100,60 @@ export const EmbeddedFileExplorerModal: React.FC<EmbeddedFileExplorerModalProps>
     },
   ], []);
 
+  const [storageOptions, setStorageOptions] = useState<StorageDeviceOption[]>(defaultStorageOptions);
+  const [isScanningAll, setIsScanningAll] = useState<boolean>(false);
+
+  // تحديث مسارات التخزين الحقيقية من الرسيفر (فلاشات USB المتصلة حالياً)
+  useEffect(() => {
+    if (!isOpen) return;
+    const w = typeof window !== 'undefined' ? (window as any) : null;
+    const bridge = w?.AndroidControl || w?.Android;
+    if (bridge && typeof bridge.getDefaultStoragePaths === 'function') {
+      try {
+        const raw = bridge.getDefaultStoragePaths();
+        const parsed = JSON.parse(raw || '[]');
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const opts: StorageDeviceOption[] = parsed.map((item: any) => ({
+            title: item.name.includes('USB') ? item.name : `مجلد: ${item.name}`,
+            path: item.path,
+            iconType: item.name.toLowerCase().includes('usb') || item.path.toLowerCase().includes('usb') ? 'usb' : 'storage',
+            description: item.path,
+          }));
+          setStorageOptions(opts);
+        }
+      } catch (err) {
+        console.warn('Error reading default storage paths:', err);
+      }
+    }
+  }, [isOpen]);
+
+  // فحص شامل وتلقائي لكل ملفات M3U في الرسيفر والفلاشة بدون البحث يدوياً في المجلدات
+  const handleScanAllPlaylists = () => {
+    setIsScanningAll(true);
+    setDirectoryError('');
+    const w = typeof window !== 'undefined' ? (window as any) : null;
+    const bridge = w?.AndroidControl || w?.Android;
+    if (bridge && typeof bridge.scanAllPlaylists === 'function') {
+      try {
+        const raw = bridge.scanAllPlaylists();
+        const parsed = JSON.parse(raw || '[]');
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setFolderItems(parsed);
+          setIsScanningAll(false);
+          return;
+        }
+      } catch (err) {
+        console.warn('scanAllPlaylists failed:', err);
+      }
+    }
+
+    // إذا لم يكن التطبيق يعمل داخل الرسيفر حالياً، جلب مسار التنزيلات
+    setTimeout(() => {
+      setIsScanningAll(false);
+      loadDirectoryPath(currentPath);
+    }, 400);
+  };
+
   // فحص مباشر لمحتوى الملف المفتوح حالياً
   const parsedData: ParseResult = useMemo(() => {
     if (!fileContent.trim()) {
@@ -373,7 +427,7 @@ export const EmbeddedFileExplorerModal: React.FC<EmbeddedFileExplorerModalProps>
             <div className="space-y-3">
               {/* Quick Storage Locations */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {defaultStorageOptions.map((opt) => (
+                {storageOptions.map((opt) => (
                   <button
                     key={opt.path}
                     type="button"
@@ -407,24 +461,35 @@ export const EmbeddedFileExplorerModal: React.FC<EmbeddedFileExplorerModalProps>
                 ))}
               </div>
 
-              {/* Current Path Bar */}
-              <div className="flex items-center justify-between gap-2 p-2 bg-slate-950 border border-slate-800 rounded-xl">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
+              {/* Current Path Bar & Quick Auto Scan Button */}
+              <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-slate-950 border border-slate-800 rounded-xl">
+                <div className="flex items-center gap-2 flex-1 min-w-[200px]">
                   <Folder className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span className="text-xs text-slate-400 shrink-0">المسار الحالي:</span>
+                  <span className="text-xs text-slate-400 shrink-0">المسار:</span>
                   <span className="text-xs font-mono text-slate-200 truncate" dir="ltr">
                     {currentPath}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => loadDirectoryPath(currentPath)}
-                  className="tv-focusable px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs flex items-center gap-1 cursor-pointer"
-                  title="إعادة فحص المجلد"
-                >
-                  <RefreshCw className={`w-3 h-3 ${isLoadingDirectory ? 'animate-spin' : ''}`} />
-                  <span>تحديث</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleScanAllPlaylists}
+                    className="tv-focusable px-2.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shadow-sm"
+                    title="بحث تلقائي عن كل ملفات القنوات في الذاكرة والفلاشة"
+                  >
+                    <Search className={`w-3.5 h-3.5 ${isScanningAll ? 'animate-spin' : ''}`} />
+                    <span>فحص شامل للملفات</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => loadDirectoryPath(currentPath)}
+                    className="tv-focusable px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs flex items-center gap-1 cursor-pointer"
+                    title="إعادة فحص المجلد الحالي"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isLoadingDirectory ? 'animate-spin' : ''}`} />
+                    <span>تحديث</span>
+                  </button>
+                </div>
               </div>
 
               {/* Directory Content List */}

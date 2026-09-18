@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, Square, Radio, Bell, Zap, Volume2 } from 'lucide-react';
+import { Play, Pause, Square, Bell, Zap, Volume2 } from 'lucide-react';
+import { AudioCastIcon } from './AudioCastIcon';
 import { Channel, PlayerStatus, RetryState } from '../types';
 import { playerEngine } from '../services/playerService';
 
@@ -97,7 +98,7 @@ export const ForegroundNotification: React.FC<ForegroundNotificationProps> = ({
                 }}
               />
             ) : (
-              <Radio className={`w-6 h-6 ${isPlaying ? 'text-emerald-400' : 'text-slate-400'}`} />
+              <AudioCastIcon className="w-8 h-8" animated={isPlaying} withGlow={isPlaying} />
             )}
 
             {isPlaying && (

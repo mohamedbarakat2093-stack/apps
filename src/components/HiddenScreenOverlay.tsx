@@ -170,11 +170,42 @@ export const HiddenScreenOverlay: React.FC<HiddenScreenOverlayProps> = ({
 
     window.addEventListener('keydown', handleKeyDown, true);
     window.addEventListener('remoteNumberPress', handleNativeRemoteNumber as EventListener);
+    
+    // دعم أزرار الريموت كنترول أثناء الإخفاء (الأخضر لإعادة الإظهار، والتقليب بين القنوات)
+    const handleRemoteGreen = () => {
+      onRestore();
+    };
+    const handleRemoteNext = () => {
+      if (!channels.length || !onSelectChannel || !activeChannel) return;
+      const curIdx = channels.findIndex((c) => c.id === activeChannel.id || c.url === activeChannel.url);
+      const nextIdx = (curIdx + 1) % channels.length;
+      onSelectChannel(channels[nextIdx]);
+      setChannelToast({ number: nextIdx + 1, name: channels[nextIdx].name });
+      setShowHint(true);
+      setTimeout(() => setChannelToast(null), 3500);
+    };
+    const handleRemotePrev = () => {
+      if (!channels.length || !onSelectChannel || !activeChannel) return;
+      const curIdx = channels.findIndex((c) => c.id === activeChannel.id || c.url === activeChannel.url);
+      const prevIdx = (curIdx - 1 + channels.length) % channels.length;
+      onSelectChannel(channels[prevIdx]);
+      setChannelToast({ number: prevIdx + 1, name: channels[prevIdx].name });
+      setShowHint(true);
+      setTimeout(() => setChannelToast(null), 3500);
+    };
+
+    window.addEventListener('audiocast:remote_green', handleRemoteGreen);
+    window.addEventListener('audiocast:remote_ch_next', handleRemoteNext);
+    window.addEventListener('audiocast:remote_ch_prev', handleRemotePrev);
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown, true);
       window.removeEventListener('remoteNumberPress', handleNativeRemoteNumber as EventListener);
+      window.removeEventListener('audiocast:remote_green', handleRemoteGreen);
+      window.removeEventListener('audiocast:remote_ch_next', handleRemoteNext);
+      window.removeEventListener('audiocast:remote_ch_prev', handleRemotePrev);
     };
-  }, [onRestore, channels, onSelectChannel]);
+  }, [onRestore, channels, onSelectChannel, activeChannel]);
 
   if (!isHidden) return null;
 
