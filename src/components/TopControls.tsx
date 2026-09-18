@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshCw, EyeOff, Radio, FileAudio, Cpu, Volume2, Zap, FolderOpen } from 'lucide-react';
+import { RefreshCw, EyeOff, Radio, FileAudio, Cpu, Volume2, Zap, FolderOpen, Square } from 'lucide-react';
 import { PlayerStatus } from '../types';
 
 interface TopControlsProps {
@@ -19,6 +19,7 @@ interface TopControlsProps {
   savedFileName?: string;
   isAudioChannelsActive: boolean;
   uploadedChannelsCount: number;
+  onStop?: () => void;
 }
 
 export const TopControls: React.FC<TopControlsProps> = ({
@@ -38,6 +39,7 @@ export const TopControls: React.FC<TopControlsProps> = ({
   savedFileName,
   isAudioChannelsActive,
   uploadedChannelsCount,
+  onStop,
 }) => {
   return (
     <div id="top-controls-container" className="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
@@ -146,7 +148,7 @@ export const TopControls: React.FC<TopControlsProps> = ({
           </button>
         </div>
 
-        {/* Current status chip */}
+        {/* Current status chip & Stop Service Button */}
         <div className="flex items-center gap-2">
           {activeChannelName ? (
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-xs">
@@ -159,7 +161,7 @@ export const TopControls: React.FC<TopControlsProps> = ({
                 {activeChannelName}
               </span>
               <span className="text-emerald-400 font-mono text-[11px] font-bold">
-                {status === 'playing' ? '● شغال' : status === 'paused' ? 'مؤقت' : status === 'reconnecting' ? 'إعادة اتصال' : 'تحميل...'}
+                {status === 'playing' ? '● شغال' : status === 'reconnecting' ? 'إعادة اتصال' : 'تحميل...'}
               </span>
             </div>
           ) : (
@@ -167,6 +169,20 @@ export const TopControls: React.FC<TopControlsProps> = ({
               <Radio className="w-3 h-3 text-slate-500" />
               <span>لا توجد قناة قيد التشغيل</span>
             </div>
+          )}
+
+          {/* زر إيقاف الخدمة الذي طلبه المستخدم */}
+          {activeChannelName && onStop && (
+            <button
+              id="btn-stop-service"
+              type="button"
+              onClick={onStop}
+              className="tv-focusable flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 font-bold transition-all text-xs cursor-pointer shadow-sm shadow-rose-950/40"
+              title="إيقاف الخدمة والصوت نهائياً (Stop Service)"
+            >
+              <Square className="w-3.5 h-3.5 fill-current text-rose-400" />
+              <span>إيقاف الخدمة</span>
+            </button>
           )}
         </div>
       </div>

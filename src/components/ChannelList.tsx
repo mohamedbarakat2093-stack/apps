@@ -452,7 +452,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
                     </h4>
                     {isCurrentActive && (
                       <span className="shrink-0 text-[9px] font-bold px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                        {isPlaying ? 'شغال' : 'مؤقت'}
+                        {isPlaying ? '● شغال' : 'تحميل...'}
                       </span>
                     )}
                   </div>

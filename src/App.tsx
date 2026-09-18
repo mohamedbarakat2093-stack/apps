@@ -8,7 +8,6 @@ import { EmbeddedFileExplorerModal } from './components/EmbeddedFileExplorerModa
 import { ExoPlayerModal } from './components/ExoPlayerModal';
 import { PresetPlaylistsBar } from './components/PresetPlaylistsBar';
 import { ReceiverRemoteBar } from './components/ReceiverRemoteBar';
-import { SplashScreen } from './components/SplashScreen';
 import { parsePlaylistFile } from './utils/m3uParser';
 import { playerEngine } from './services/playerService';
 import {
@@ -37,17 +36,62 @@ interface UploadedFileRecord {
 }
 
 export default function App() {
-  // Navigation / View state
-  const [activeView, setActiveView] = useState<ActiveView>('preset');
-  const [activePresetId, setActivePresetId] = useState<string>(EGYPTIAN_RADIO_PRESET.id);
+  // Navigation / View state - يستعيد الحالة السابقة المحفوظة مباشرة حتى لا يبدأ من البداية عند فتح التطبيق
+  const [activeView, setActiveView] = useState<ActiveView>(() => {
+    try {
+      const v = localStorage.getItem(STORAGE_ACTIVE_VIEW_KEY) as ActiveView;
+      if (v === 'audio_channels' || v === 'preset') return v;
+    } catch (_) {}
+    return 'preset';
+  });
+  const [activePresetId, setActivePresetId] = useState<string>(() => {
+    try {
+      const p = localStorage.getItem(STORAGE_ACTIVE_PRESET_KEY);
+      if (p) return p;
+    } catch (_) {}
+    return EGYPTIAN_RADIO_PRESET.id;
+  });
 
   // Channels state
-  const [uploadedChannels, setUploadedChannels] = useState<Channel[]>([]);
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFileRecord[]>([]);
-  const [presetChannels, setPresetChannels] = useState<Channel[]>(EGYPTIAN_RADIO_PRESET.channels);
+  const [uploadedChannels, setUploadedChannels] = useState<Channel[]>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_USER_AUDIO_CHANNELS_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (_) {}
+    return [];
+  });
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFileRecord[]>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_USER_FILES_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (_) {}
+    return [];
+  });
+  const [presetChannels, setPresetChannels] = useState<Channel[]>(() => {
+    try {
+      const pId = localStorage.getItem(STORAGE_ACTIVE_PRESET_KEY);
+      const found = ALL_PRESETS.find((p) => p.id === pId);
+      if (found) return found.channels;
+    } catch (_) {}
+    return EGYPTIAN_RADIO_PRESET.channels;
+  });
 
-  // Player state
-  const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
+  // Player state - يستعيد القناة الأخيرة مباشرة للعمل فوراً
+  const [activeChannel, setActiveChannel] = useState<Channel | null>(() => {
+    try {
+      const last = localStorage.getItem(STORAGE_LAST_PLAYED_KEY);
+      if (last) {
+        return JSON.parse(last);
+      }
+    } catch (_) {}
+    return null;
+  });
   const [previousChannel, setPreviousChannel] = useState<Channel | null>(null);
   const [playerStatus, setPlayerStatus] = useState<PlayerStatus>('idle');
   const [retryState, setRetryState] = useState<RetryState>({
@@ -65,21 +109,6 @@ export default function App() {
   const [isEmbeddedExplorerOpen, setIsEmbeddedExplorerOpen] = useState<boolean>(false);
   const [isExoPlayerModalOpen, setIsExoPlayerModalOpen] = useState<boolean>(false);
   const [isAudioBoosted, setIsAudioBoosted] = useState<boolean>(() => playerEngine.isAudioBoosted());
-  // شاشة البداية (Splash Screen) تظهر لمرة واحدة فقط عند فتح التطبيق ولا تستهلك المعالج
-  const [showSplash, setShowSplash] = useState<boolean>(() => {
-    try {
-      return !sessionStorage.getItem('audiocast_splash_shown');
-    } catch (_) {
-      return true;
-    }
-  });
-
-  const handleSplashFinish = useCallback(() => {
-    setShowSplash(false);
-    try {
-      sessionStorage.setItem('audiocast_splash_shown', 'true');
-    } catch (_) {}
-  }, []);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const toastTimeoutRef = useRef<any>(null);
@@ -89,21 +118,20 @@ export default function App() {
       clearTimeout(toastTimeoutRef.current);
     }
     setToastMessage({ text, type });
-    // رسالة الخطأ أو "القناة مش شغالة" لا تبقى أكثر من نصف ثانية (500ms) حسب طلب المستخدم
     const duration = type === 'error' ? 500 : 2500;
     toastTimeoutRef.current = setTimeout(() => {
       setToastMessage(null);
     }, duration);
   }, []);
 
-  // 1. التهيئة الأولية واستعادة البيانات المحفوظة
+  // 1. التهيئة الأولية واستعادة البيانات المحفوظة والتشغيل التلقائي المباشر
   useEffect(() => {
-    // إعداد مستمعات محرك تشغيل الصوت Hls.js
+    // إعداد مستمعات محرك تشغيل الصوت Hls.js و ExoPlayer (بدون إشعارات تشغيل أو إيقاف)
     playerEngine.setCallbacks({
       onStatusChange: (status) => setPlayerStatus(status),
       onActiveChannelChange: (channel) => setActiveChannel(channel),
       onRetryUpdate: (retry) => setRetryState(retry),
-      onErrorToast: (msg) => showToast(msg, 'error'),
+      onErrorToast: () => {}, // إخفاء إشعارات الخطأ المزعجة وتشغيل القنوات بصمت ونقاء
       onAudioBoostChange: (boosted) => setIsAudioBoosted(boosted),
     });
 
@@ -173,17 +201,7 @@ export default function App() {
         }
 
         if (lastChannel && lastChannel.url) {
-          playerEngine.playChannel(lastChannel, true)
-            .then((played) => {
-              if (played) {
-                showToast(`تم استئناف تشغيل: "${lastChannel.name}"`, 'success');
-              } else {
-                setAutoplayBlockedChannel(lastChannel);
-              }
-            })
-            .catch(() => {
-              setAutoplayBlockedChannel(lastChannel);
-            });
+          playerEngine.playChannel(lastChannel, true).catch(() => {});
         }
       }
     } catch (e) {
@@ -387,7 +405,6 @@ export default function App() {
       if (firstChannel) {
         setTimeout(() => {
           handleSelectChannel(firstChannel);
-          showToast(`جاري تشغيل: "${firstChannel.name}"...`, 'info');
         }, 200);
       }
 
@@ -474,8 +491,6 @@ export default function App() {
       // ignore
     }
 
-    showToast(`تم فتح ${preset.title} (${preset.channels.length} قناة)`, 'success');
-
     // تشغيل أول قناة في الباقة
     if (preset.channels.length > 0) {
       const firstChannel = preset.channels[0];
@@ -485,13 +500,13 @@ export default function App() {
     }
   };
 
-  // اختيار قناة والتشغيل
+  // اختيار قناة والتشغيل المباشر للصوت
   const handleSelectChannel = (channel: Channel) => {
     setActiveChannel((currentActive) => {
       if (currentActive && currentActive.id !== channel.id) {
         setPreviousChannel(currentActive);
       }
-      return currentActive;
+      return channel;
     });
     setAutoplayBlockedChannel(null);
     playerEngine.enforceExclusiveAudioFocus();
@@ -616,11 +631,8 @@ export default function App() {
   const handleRecallLastChannel = useCallback(() => {
     if (previousChannel) {
       handleSelectChannel(previousChannel);
-      showToast(`تم استرجاع القناة السابقة (Recall): "${previousChannel.name}"`, 'info');
-    } else {
-      showToast('لا توجد قناة سابقة محفوظة للتبديل إليها', 'info');
     }
-  }, [previousChannel, showToast]);
+  }, [previousChannel]);
 
   const handleNextChannel = useCallback(() => {
     if (currentChannels.length === 0) return;
@@ -629,8 +641,7 @@ export default function App() {
       : -1;
     const nextIdx = (curIdx + 1) % currentChannels.length;
     handleSelectChannel(currentChannels[nextIdx]);
-    showToast(`القناة التالية (${nextIdx + 1}): "${currentChannels[nextIdx].name}"`, 'info');
-  }, [currentChannels, activeChannel, showToast]);
+  }, [currentChannels, activeChannel]);
 
   const handlePrevChannel = useCallback(() => {
     if (currentChannels.length === 0) return;
@@ -639,8 +650,7 @@ export default function App() {
       : 0;
     const prevIdx = (curIdx - 1 + currentChannels.length) % currentChannels.length;
     handleSelectChannel(currentChannels[prevIdx]);
-    showToast(`القناة السابقة (${prevIdx + 1}): "${currentChannels[prevIdx].name}"`, 'info');
-  }, [currentChannels, activeChannel, showToast]);
+  }, [currentChannels, activeChannel]);
 
   // الاستماع لأحداث ريموت الرسيفر المباشرة (أزرار الألوان، Recall، CH+/-، إلخ)
   useEffect(() => {
@@ -718,9 +728,6 @@ export default function App() {
         isHiddenScreen ? 'bg-transparent' : 'bg-slate-950'
       } text-slate-100 flex flex-col selection:bg-blue-600 selection:text-white`}
     >
-      {/* شاشة البداية والترحيب الخفيفة - تعمل مرة واحدة فقط عند فتح التطبيق وتتلاشى تماماً */}
-      {showSplash && <SplashScreen onFinish={handleSplashFinish} />}
-
       {/* Hidden file picker for user uploads without any format restrictions */}
       <input
         ref={fileInputRef}
@@ -738,8 +745,6 @@ export default function App() {
           activeChannel={activeChannel}
           status={playerStatus}
           onRestore={handleRestoreScreen}
-          onTogglePlayPause={handleTogglePlayPause}
-          onStop={handleStop}
           channels={currentChannels}
           onSelectChannel={handleSelectChannel}
         />
@@ -817,30 +822,7 @@ export default function App() {
               isAudioChannelsActive={activeView === 'audio_channels'}
             />
 
-            {/* Autoplay resume prompt if browser blocked autoplay policy */}
-            {autoplayBlockedChannel && !activeChannel && (
-              <div
-                id="autoplay-resume-banner"
-                className="bg-emerald-950/60 border border-emerald-500/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-emerald-200 shadow-lg"
-              >
-                <div className="flex items-center gap-2">
-                  <Radio className="w-5 h-5 text-emerald-400 shrink-0" />
-                  <span>
-                    آخر قناة كانت تعمل: <strong className="text-white">{autoplayBlockedChannel.name}</strong>
-                  </span>
-                </div>
-                <button
-                  id="btn-confirm-autoplay"
-                  type="button"
-                  onClick={() => handleSelectChannel(autoplayBlockedChannel)}
-                  className="tv-focusable px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs cursor-pointer shadow-md shadow-emerald-600/30"
-                >
-                  استئناف التشغيل الآن
-                </button>
-              </div>
-            )}
-
-            {/* أدوات التحكم (Controls) مع زر "القنوات الصوتية" وزر مضاعفة الصوت 3X */}
+            {/* أدوات التحكم (Controls) مع زر "القنوات الصوتية" وزر مضاعفة الصوت 3X وزر إيقاف الخدمة */}
             <TopControls
               onSelectAudioChannels={handleSelectAudioChannelsView}
               onLoadNewFile={handleLoadNewFileClick}
@@ -858,6 +840,7 @@ export default function App() {
               savedFileName={uploadedFiles[0]?.name}
               isAudioChannelsActive={activeView === 'audio_channels'}
               uploadedChannelsCount={uploadedChannels.length}
+              onStop={handleStop}
             />
 
             {/* شريط أزرار الريموت كنترول للرسيفرات (Dreamax B9S2X / أندرويد) للألوان الأربعة والوظائف السريعة */}
@@ -871,31 +854,15 @@ export default function App() {
               hasPreviousChannel={Boolean(previousChannel)}
             />
 
-            {/* خدمة Foreground Service وإشعار النظام ومفاتيح الميديا في الخلفية */}
+            {/* بطاقة الخدمة النشطة وتتضمن زر إيقاف الخدمة الذي كان موجوداً */}
             {activeChannel && (
               <ForegroundNotification
                 channel={activeChannel}
                 status={playerStatus}
                 retryState={retryState}
-                onTogglePlayPause={handleTogglePlayPause}
                 onStop={handleStop}
                 onOpenExoPlayerModal={() => setIsExoPlayerModalOpen(true)}
               />
-            )}
-
-            {/* Reconnecting Status Banner */}
-            {retryState.active && (
-              <div
-                id="reconnection-status-banner"
-                className="bg-amber-950/70 border border-amber-500/40 rounded-2xl p-4 flex items-center justify-between text-amber-200 text-sm"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="w-3 h-3 rounded-full bg-amber-400 animate-ping" />
-                  <span>
-                    انقطع البث مؤقتاً. جاري إعادة الاتصال تلقائياً: المحاولة {retryState.attempt} من {retryState.maxAttempts} (بعد {retryState.delaySeconds} ثوانٍ)...
-                  </span>
-                </div>
-              </div>
             )}
 
             {/* قائمة القنوات (تظهر قنوات الباقة أو خانة القنوات الصوتية للملفات المرفوعة) */}

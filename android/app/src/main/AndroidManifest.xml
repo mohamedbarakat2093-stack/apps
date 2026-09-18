@@ -35,10 +35,12 @@
         android:hardwareAccelerated="true"
         tools:targetApi="25">
 
-        <!-- النشاط الرئيسي: يدعم أجهزة التلفاز والرسيفر والموبايل معاً -->
+        <!-- النشاط الرئيسي: يدعم أجهزة التلفاز والرسيفر والموبايل معاً ويعمل دائماً في الخلفية بدون إعادة التشغيل من البداية -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
+            android:alwaysRetainTaskState="true"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|navigation"
             android:windowSoftInputMode="adjustResize">
             

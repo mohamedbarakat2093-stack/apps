@@ -7,8 +7,8 @@ interface HiddenScreenOverlayProps {
   onRestore: () => void;
   activeChannel: Channel | null;
   status: PlayerStatus;
-  onTogglePlayPause: () => void;
-  onStop: () => void;
+  onTogglePlayPause?: () => void;
+  onStop?: () => void;
   channels?: Channel[];
   onSelectChannel?: (channel: Channel) => void;
 }

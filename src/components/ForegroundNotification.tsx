@@ -8,7 +8,7 @@ interface ForegroundNotificationProps {
   channel: Channel;
   status: PlayerStatus;
   retryState: RetryState;
-  onTogglePlayPause: () => void;
+  onTogglePlayPause?: () => void;
   onStop: () => void;
   onOpenExoPlayerModal?: () => void;
 }
@@ -156,42 +156,44 @@ export const ForegroundNotification: React.FC<ForegroundNotificationProps> = ({
             )}
           </button>
 
-          {/* Play / Pause Toggle inside notification */}
-          <button
-            id="notification-btn-play-pause"
-            type="button"
-            onClick={onTogglePlayPause}
-            disabled={isLoading || isReconnecting}
-            className={`tv-focusable p-3 rounded-xl font-bold flex items-center gap-2 transition-all cursor-pointer ${
-              isPlaying
-                ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30'
-                : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30'
-            }`}
-            title={isPlaying ? 'إيقاف مؤقت (Pause)' : 'متابعة التشغيل (Play)'}
-          >
-            {isPlaying ? (
-              <>
-                <Pause className="w-5 h-5 fill-current" />
-                <span className="text-xs">إيقاف مؤقت</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-5 h-5 fill-current" />
-                <span className="text-xs">تشغيل</span>
-              </>
-            )}
-          </button>
+          {/* Play / Pause Toggle inside notification - only if explicitly provided */}
+          {onTogglePlayPause && (
+            <button
+              id="notification-btn-play-pause"
+              type="button"
+              onClick={onTogglePlayPause}
+              disabled={isLoading || isReconnecting}
+              className={`tv-focusable p-3 rounded-xl font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                isPlaying
+                  ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30'
+                  : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30'
+              }`}
+              title={isPlaying ? 'إيقاف مؤقت (Pause)' : 'متابعة التشغيل (Play)'}
+            >
+              {isPlaying ? (
+                <>
+                  <Pause className="w-5 h-5 fill-current" />
+                  <span className="text-xs">إيقاف مؤقت</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-5 h-5 fill-current" />
+                  <span className="text-xs">تشغيل</span>
+                </>
+              )}
+            </button>
+          )}
 
-          {/* Stop Button inside notification */}
+          {/* زر إيقاف الخدمة الذي كان موجوداً */}
           <button
             id="notification-btn-stop"
             type="button"
             onClick={onStop}
-            className="tv-focusable p-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-2 transition-all cursor-pointer"
-            title="إيقاف الخدمة والإشعار نهائياً (Stop)"
+            className="tv-focusable px-4 py-3 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/40 flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-rose-950/40 font-bold"
+            title="إيقاف الخدمة والإشعار نهائياً (Stop Service)"
           >
-            <Square className="w-4 h-4 fill-current" />
-            <span className="text-xs">إيقاف الخدمة</span>
+            <Square className="w-4 h-4 fill-current text-rose-400" />
+            <span className="text-xs font-bold">إيقاف الخدمة</span>
           </button>
         </div>
       </div>

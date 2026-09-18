@@ -173,6 +173,13 @@ public class MainActivity extends AppCompatActivity {
         try {
             AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
             if (audioManager != null) {
+                if (wakeLock != null && !wakeLock.isHeld()) {
+                    wakeLock.acquire(24 * 60 * 60 * 1000L);
+                }
+                if (wifiLock != null && !wifiLock.isHeld()) {
+                    wifiLock.acquire();
+                }
+
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     android.media.AudioFocusRequest afr = new android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
                             .setAudioAttributes(new android.media.AudioAttributes.Builder()
@@ -988,13 +995,29 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (keyCode == KeyEvent.KEYCODE_BACK) {
-            if (webView.canGoBack()) {
-                webView.goBack();
-                return true;
-            }
+            // لا نغلق التطبيق أبداً عند الضغط على زر الرجوع في الريموت
+            // بل نرسله للخلفية ليستمر الصوت شغالاً في الخلفية دائماً
+            claimExclusiveAudioFocus();
+            moveTaskToBack(true);
+            return true;
         }
 
         return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    public void onBackPressed() {
+        // إرسال التطبيق للخلفية دون إغلاقه ليستمر الصوت في العمل
+        claimExclusiveAudioFocus();
+        moveTaskToBack(true);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        // عند فتح التطبيق من جديد، يظل محتفظاً بحالته الحالية ولا يبدأ من البداية
+        claimExclusiveAudioFocus();
     }
 
     @Override
