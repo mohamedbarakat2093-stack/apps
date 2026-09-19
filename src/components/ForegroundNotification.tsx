@@ -74,12 +74,6 @@ export const ForegroundNotification: React.FC<ForegroundNotificationProps> = ({
             </button>
           )}
         </div>
-
-        {retryState.active && (
-          <span className="text-amber-400 text-xs font-medium animate-pulse">
-            محاولة إعادة الاتصال ({retryState.attempt} من {retryState.maxAttempts})...
-          </span>
-        )}
       </div>
 
       {/* Media Content & Direct System Controls */}

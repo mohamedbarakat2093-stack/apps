@@ -88,14 +88,16 @@ export const HiddenScreenOverlay: React.FC<HiddenScreenOverlayProps> = ({
   // الاستماع لزر OK في الريموت (Enter / D-Pad Center / KeyCode 23 / KeyCode 13) لإلغاء الإخفاء فوراً
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const code = e.keyCode || e.which;
+
       // زر OK في مختلف أنواع الريموت وأجهزة الأندرويد والرسيفر
       const isOkKey =
         e.key === 'Enter' ||
         e.code === 'Enter' ||
         e.code === 'NumpadEnter' ||
-        e.keyCode === 13 ||
-        e.keyCode === 23 || // KEYCODE_DPAD_CENTER في أندرويد تي في
-        e.keyCode === 66 || // KEYCODE_ENTER في أندرويد
+        code === 13 ||
+        code === 23 || // KEYCODE_DPAD_CENTER في أندرويد تي في
+        code === 66 || // KEYCODE_ENTER في أندرويد
         e.key === 'Select' ||
         e.key === 'OK' ||
         e.key === 'Ok';
@@ -103,11 +105,14 @@ export const HiddenScreenOverlay: React.FC<HiddenScreenOverlayProps> = ({
       const isHomeOrBack =
         e.key === 'Home' ||
         e.code === 'Home' ||
-        e.keyCode === 36 ||
+        code === 36 ||
         e.key === 'Escape' ||
-        e.keyCode === 27;
+        code === 27;
 
-      if (isOkKey || isHomeOrBack) {
+      // الزر الأخضر (KeyCode: 5088): إخفاء/إظهار الشاشة
+      const isGreenKey = code === 5088 || code === 184 || e.key === 'F2' || e.code === 'F2';
+
+      if (isOkKey || isHomeOrBack || isGreenKey) {
         e.preventDefault();
         e.stopPropagation();
         onRestore();

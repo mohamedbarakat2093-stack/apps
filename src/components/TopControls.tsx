@@ -160,9 +160,11 @@ export const TopControls: React.FC<TopControlsProps> = ({
               <span className="text-slate-200 font-bold truncate max-w-[150px] sm:max-w-[220px]">
                 {activeChannelName}
               </span>
-              <span className="text-emerald-400 font-mono text-[11px] font-bold">
-                {status === 'playing' ? '● شغال' : status === 'reconnecting' ? 'إعادة اتصال' : 'تحميل...'}
-              </span>
+              {status === 'playing' && (
+                <span className="text-emerald-400 font-mono text-[11px] font-bold">
+                  ● شغال
+                </span>
+              )}
             </div>
           ) : (
             <div className="text-[11px] text-slate-400 flex items-center gap-1.5 bg-slate-800/40 px-2 py-1 rounded-lg border border-slate-800">

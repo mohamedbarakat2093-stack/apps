@@ -670,20 +670,45 @@ export default function App() {
         return;
       }
 
-      // أزرار الألوان في ريموت الرسيفر (تتوافق أيضاً مع F1-F4)
-      if (e.key === 'F1' || e.code === 'F1') {
+      const code = e.keyCode || e.which;
+
+      // الزر الأحمر (KeyCode: 5087): تبديل مضاعفة الصوت (شغال / غير مفعل)
+      if (code === 5087 || e.key === 'F1' || e.code === 'F1' || code === 183) {
         e.preventDefault();
         onRemoteRed();
-      } else if (e.key === 'F2' || e.code === 'F2') {
+        return;
+      }
+
+      // الزر الأخضر (KeyCode: 5088): إخفاء الشاشة (خلفية شفافة / إخفاء الواجهة)
+      if (code === 5088 || e.key === 'F2' || e.code === 'F2' || code === 184) {
         e.preventDefault();
         onRemoteGreen();
-      } else if (e.key === 'F3' || e.code === 'F3') {
+        return;
+      }
+
+      // الزر الأصفر (KeyCode: 5089): الانتقال المباشر لقسم/مجموعة (راديو أنيس والرياضة)
+      if (code === 5089 || e.key === 'F3' || e.code === 'F3' || code === 185) {
         e.preventDefault();
         onRemoteYellow();
-      } else if (e.key === 'F4' || e.code === 'F4') {
+        return;
+      }
+
+      // الزر الأزرق (KeyCode: 5090): الانتقال المباشر لقسم/مجموعة (القنوات الصوتية)
+      if (code === 5090 || e.key === 'F4' || e.code === 'F4' || code === 186) {
         e.preventDefault();
         onRemoteBlue();
-      } else if (e.key === 'PageDown' || e.code === 'PageDown') {
+        return;
+      }
+
+      // زر الريكول Recall (KeyCode: 5061): الرجوع للقناة السابقة
+      if (code === 5061 || code === 229 || e.key === 'Recall') {
+        e.preventDefault();
+        onRemoteRecall();
+        return;
+      }
+
+      // أزرار تقليب القنوات
+      if (e.key === 'PageDown' || e.code === 'PageDown') {
         e.preventDefault();
         onRemoteChNext();
       } else if (e.key === 'PageUp' || e.code === 'PageUp') {

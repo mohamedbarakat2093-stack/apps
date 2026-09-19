@@ -894,30 +894,34 @@ public class MainActivity extends AppCompatActivity {
         }
 
         // أزرار ريموت الرسيفر الملونة الأربعة (Dreamax B9S2X / Amlogic Satellite Receiver)
-        // الزر الأحمر (183): تبديل مضاعفة الصوت (Audio Boost)
-        if (keyCode == KeyEvent.KEYCODE_PROG_RED || keyCode == 183) {
-            String js = "window.dispatchEvent(new CustomEvent('audiocast:remote_red'));";
+        // الزر الأحمر (KeyCode: 5087 / 183 / KEYCODE_PROG_RED): تبديل مضاعفة الصوت (Audio Boost)
+        if (keyCode == 5087 || keyCode == KeyEvent.KEYCODE_PROG_RED || keyCode == 183) {
+            String js = "window.dispatchEvent(new CustomEvent('audiocast:remote_red')); " +
+                        "window.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 5087, which: 5087, key: 'Red', bubbles: true }));";
             webView.evaluateJavascript(js, null);
             return true;
         }
 
-        // الزر الأخضر (184): إخفاء الشاشة الفوري (Hide / Overlay Mode لمشاهدة قناة الدش مع الصوت)
-        if (keyCode == KeyEvent.KEYCODE_PROG_GREEN || keyCode == 184) {
-            String js = "window.dispatchEvent(new CustomEvent('audiocast:remote_green'));";
+        // الزر الأخضر (KeyCode: 5088 / 184 / KEYCODE_PROG_GREEN): إخفاء الشاشة الفوري (Hide / Overlay Mode)
+        if (keyCode == 5088 || keyCode == KeyEvent.KEYCODE_PROG_GREEN || keyCode == 184) {
+            String js = "window.dispatchEvent(new CustomEvent('audiocast:remote_green')); " +
+                        "window.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 5088, which: 5088, key: 'Green', bubbles: true }));";
             webView.evaluateJavascript(js, null);
             return true;
         }
 
-        // الزر الأصفر (185): الانتقال المباشر لباقة راديو أنيس والرياضة
-        if (keyCode == KeyEvent.KEYCODE_PROG_YELLOW || keyCode == 185) {
-            String js = "window.dispatchEvent(new CustomEvent('audiocast:remote_yellow'));";
+        // الزر الأصفر (KeyCode: 5089 / 185 / KEYCODE_PROG_YELLOW): الانتقال المباشر لباقة راديو أنيس والرياضة
+        if (keyCode == 5089 || keyCode == KeyEvent.KEYCODE_PROG_YELLOW || keyCode == 185) {
+            String js = "window.dispatchEvent(new CustomEvent('audiocast:remote_yellow')); " +
+                        "window.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 5089, which: 5089, key: 'Yellow', bubbles: true }));";
             webView.evaluateJavascript(js, null);
             return true;
         }
 
-        // الزر الأزرق (186): الانتقال لخانة القنوات الصوتية / فتح قارئ الملفات
-        if (keyCode == KeyEvent.KEYCODE_PROG_BLUE || keyCode == 186) {
-            String js = "window.dispatchEvent(new CustomEvent('audiocast:remote_blue'));";
+        // الزر الأزرق (KeyCode: 5090 / 186 / KEYCODE_PROG_BLUE): الانتقال المباشر لقسم/مجموعة القنوات الصوتية
+        if (keyCode == 5090 || keyCode == KeyEvent.KEYCODE_PROG_BLUE || keyCode == 186) {
+            String js = "window.dispatchEvent(new CustomEvent('audiocast:remote_blue')); " +
+                        "window.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 5090, which: 5090, key: 'Blue', bubbles: true }));";
             webView.evaluateJavascript(js, null);
             return true;
         }
@@ -934,9 +938,10 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
 
-        // زر استرجاع القناة السابقة (Recall / Last Channel)
-        if (keyCode == KeyEvent.KEYCODE_LAST_CHANNEL || keyCode == 229) {
-            String js = "window.dispatchEvent(new CustomEvent('audiocast:remote_recall'));";
+        // زر استرجاع القناة السابقة (Recall / Last Channel / KeyCode: 5061 / 229)
+        if (keyCode == 5061 || keyCode == KeyEvent.KEYCODE_LAST_CHANNEL || keyCode == 229) {
+            String js = "window.dispatchEvent(new CustomEvent('audiocast:remote_recall')); " +
+                        "window.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 5061, which: 5061, key: 'Recall', bubbles: true }));";
             webView.evaluateJavascript(js, null);
             return true;
         }
